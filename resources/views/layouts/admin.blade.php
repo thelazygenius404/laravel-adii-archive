@@ -35,18 +35,51 @@
         }
 
         .sidebar-header {
-            padding: 1.5rem;
+            padding: 2rem 1.5rem; /* Increased padding */
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 2px solid rgba(255,255,255,0.15); /* Enhanced border */
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); /* Added gradient */
         }
 
         .sidebar-header img {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            margin-bottom: 10px;
+            width: 80px; /* Increased from 60px */
+            height: 80px; /* Increased from 60px */
+            border-radius: 15px; /* Changed from 50% to rounded rectangle */
+            margin-bottom: 15px; /* Increased spacing */
+            
+            /* NEW: Enhanced visual effects */
+            border: 3px solid rgba(255,255,255,0.9);
+            box-shadow: 
+                0 8px 25px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            background: white;
+            padding: 8px;
+            transition: all 0.3s ease;
+            image-rendering: crisp-edges;
         }
 
+    /* NEW: Add hover effect */
+        .sidebar-header img:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 
+                0 12px 35px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+        .sidebar-header h5 {
+            color: white;
+            font-weight: 700; /* Make it bolder */
+            font-size: 1.4rem; /* Increase size */
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* Add shadow */
+            letter-spacing: 1px; /* Add letter spacing */
+        }
+        .sidebar-header small {
+            color: rgba(255,255,255,0.9); /* Better contrast */
+            font-size: 0.85rem; /* Slightly larger */
+            font-weight: 500;
+            line-height: 1.4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2); /* Add shadow */
+        }
         .sidebar-menu {
             padding: 1rem 0;
         }
@@ -164,7 +197,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div class="sidebar-header">
-            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiIGZpbGw9IiMzNDk4ZGIiLz4KPHN2ZyB4PSIxNSIgeT0iMTUiIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Im0xMiAybDMuMDkgNi4yNkwyMiA5bC0xLjY5IDYuNDRMMjMgMTJsLTYuNDQgMS42OUwyMiAxNWwtNi45MS43NEwxMiAyMmwtMy4wOS02LjI2TDIgMTVsMy42OS02LjQ0TDEgMTJsNi40NC0xLjY5TDIgOWw2LjkxLS43NEwxMiAyeiIvPgo8L3N2Zz4KPC9zdmc+" alt="ADII Logo">
+            <img src="images/logo.png" alt="ADII Logo">
             <h5 class="mb-0">ADII</h5>
             <small>Système de gestion des archives</small>
         </div>
