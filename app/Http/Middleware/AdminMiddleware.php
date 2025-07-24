@@ -10,6 +10,9 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {   
+        if (!Auth::check()) {
+            return redirect()->route('login');
+        }
         $user = $request->user();
         if (!$user || !$user->isAdmin()) {
             abort(403, 'Access denied. Admin privileges required.');

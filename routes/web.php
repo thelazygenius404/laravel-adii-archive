@@ -1,11 +1,16 @@
 <?php
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\ArchiveController;
 Route::get('/', function () {
     return view('welcome');
 });
+use App\Http\Controllers\Auth\LoginController;
 
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login']);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 // Protected routes for authenticated users
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
@@ -16,13 +21,23 @@ Route::middleware('auth')->group(function () {
 
 // Admin only routes
 Route::middleware(['auth', 'admin'])->group(function () {
+    // Dashboard admin
+    
     Route::get('/admin/dashboard', function () {
-        return view('admin.dashboard');
+        return view('dashboard');
     })->name('admin.dashboard');
     
-    Route::get('/admin/users', function () {
-        return view('admin.users');
-    })->name('admin.users');
+    // Gestion des utilisateurs
+    Route::prefix('admin/users')->name('admin.users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::get('/{user}', [UserController::class, 'show'])->name('show');
+        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+        Route::get('/export/excel', [UserController::class, 'export'])->name('export');
+    });
 });
 
 // Gestionnaire archives only routes

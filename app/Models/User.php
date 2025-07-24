@@ -22,6 +22,7 @@ class User extends Authenticatable
         'nom',
         'prenom', 
         'email',
+        'password',
         'role',
     ];
 
@@ -45,6 +46,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'date_creation' => 'datetime',
         ];
     }
      // Check if user is admin
