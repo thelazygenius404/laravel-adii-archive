@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'id_entite_productrices',
     ];
 
     /**
@@ -49,6 +50,23 @@ class User extends Authenticatable
             'date_creation' => 'datetime',
         ];
     }
+
+    /**
+     * Get the entite productrice that owns the user.
+     */
+    public function entiteProductrice()
+    {
+        return $this->belongsTo(EntiteProductrice::class, 'id_entite_productrices');
+    }
+
+    /**
+     * Get the organisme through entite productrice.
+     */
+    public function organisme()
+    {
+        return $this->hasOneThrough(Organisme::class, EntiteProductrice::class, 'id', 'id', 'id_entite_productrices', 'id_organisme');
+    }
+
      // Check if user is admin
     public function isAdmin()
     {
@@ -60,23 +78,77 @@ class User extends Authenticatable
     {
         return $this->role === 'gestionnaire_archives';
     }
-    public function isServiceProducteur()
+    
+    public function isServiceProducteurs()
     {
-        return $this->role === 'service_producteur';
+        return $this->role === 'service_producteurs';
     }
+    
     // Get full name
     public function getFullNameAttribute()
     {
         return $this->nom . ' ' . $this->prenom;
     }
+    
      // Get user type label for display
     public function getTypeLabel()
     {
         return match($this->role) {
             'admin' => 'Administrateur',
             'gestionnaire_archives' => 'Gestionnaire Archives',
-            'service_producteur' => 'Service Producteur',
+            'service_producteurs' => 'Service Producteurs',
             default => $this->role
         };
+    }
+
+    /**
+     * Get the role display name with badge class.
+     */
+    public function getRoleDisplayAttribute()
+    {
+        return match($this->role) {
+            'admin' => 'Administrateur',
+            'gestionnaire_archives' => 'Gestionnaire d\'archives',
+            'service_producteurs' => 'Service producteurs',
+            default => $this->role
+        };
+    }
+
+    /**
+     * Get the entite hierarchy for display.
+     */
+    public function getEntiteHierarchyAttribute()
+    {
+        if (!$this->entiteProductrice) {
+            return null;
+        }
+        
+        return $this->entiteProductrice->full_name;
+    }
+
+    /**
+     * Scope to filter users by organisme.
+     */
+    public function scopeByOrganisme($query, $organismeId)
+    {
+        return $query->whereHas('entiteProductrice', function ($query) use ($organismeId) {
+            $query->where('id_organisme', $organismeId);
+        });
+    }
+
+    /**
+     * Scope to filter users by entite productrice.
+     */
+    public function scopeByEntiteProductrice($query, $entiteId)
+    {
+        return $query->where('id_entite_productrices', $entiteId);
+    }
+
+    /**
+     * Check if user belongs to a specific organisme.
+     */
+    public function belongsToOrganisme($organismeId)
+    {
+        return $this->entiteProductrice && $this->entiteProductrice->id_organisme == $organismeId;
     }
 }

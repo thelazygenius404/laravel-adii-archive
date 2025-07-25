@@ -251,8 +251,14 @@
                     Gestion des Communications
                 </a>
             </li>
+             <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('admin.organismes.*') ? 'active' : '' }}" href="{{ route('admin.organismes.index') }}">
+                    <i class="fas fa-sitemap"></i>
+                    Gestion des Organismes
+                </a>
+            </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">
+                <a class="nav-link {{ request()->routeIs('admin.entites.*') ? 'active' : '' }}" href="{{ route('admin.entites.index') }}">
                     <i class="fas fa-building"></i>
                     Gestion des Entités Productrices
                 </a>
