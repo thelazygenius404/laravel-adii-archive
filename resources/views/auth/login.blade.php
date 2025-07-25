@@ -49,10 +49,15 @@
             background-color: #3d8fcd;
             padding: 15px;
             border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .header-logo img {
             max-width: 150px;
             height: auto;
+            display: block;
+            margin: 0 auto;
         }
         .header-title {
             font-size: 2rem;

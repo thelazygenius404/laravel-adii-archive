@@ -197,7 +197,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div class="sidebar-header">
-            <img src="images/logo.png" alt="ADII Logo">
+            <img src="/images/logo.png" alt="ADII Logo">
             <h5 class="mb-0">ADII</h5>
             <small>Système de gestion des archives</small>
         </div>
