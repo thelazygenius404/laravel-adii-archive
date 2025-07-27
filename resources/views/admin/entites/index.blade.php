@@ -291,7 +291,8 @@
                     Affichage de {{ $entites->firstItem() }} à {{ $entites->lastItem() }} sur {{ $entites->total() }} résultats
                 </div>
                 <div>
-                    {{ $entites->links() }}
+                    {{ $entites->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
+
                 </div>
             </div>
         @endif
