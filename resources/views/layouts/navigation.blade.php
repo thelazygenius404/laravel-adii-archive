@@ -34,9 +34,14 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
+                        <form method="GET" action="{{ route('profile.edit') }}">
+                            <x-dropdown-link :href="route('profile.edit')"
+                                onclick="event.preventDefault();
+                                        this.closest('form').submit();">
+                                {{ __('Profil') }}
+                            </x-dropdown-link>
+                        </form>
+
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
