@@ -171,7 +171,14 @@
                                                 onclick="confirmDelete('{{ $user->id }}', '{{ $user->full_name ?? ($user->nom . ' ' . $user->prenom) }}')">
                                             <i class="fas fa-trash"></i>
                                         </button>
+
                                     @endif
+                                    <div class="btn-group" role="group">
+                                    <a href="{{ route('admin.users.show', $user) }}" 
+                                      class="btn btn-sm btn-outline-info" 
+                                       title="Voir détails">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
