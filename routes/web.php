@@ -124,9 +124,18 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/calendrier-conservation/plan/{planClassementId}', [CalendrierConservationController::class, 'byPlanClassement'])->name('calendrier-conservation.by-plan');
     Route::get('/plan-classement/statistics', [PlanClassementController::class, 'statistics'])->name('plan-classement.statistics');
     Route::get('/calendrier-conservation/statistics', [CalendrierConservationController::class, 'statistics'])->name('calendrier-conservation.statistics');
+    
 });
 
-
+// API routes for AJAX calls
+Route::prefix('api')->name('api.')->group(function () {
+    Route::get('/organismes', [OrganismeController::class, 'api'])->name('organismes');
+    Route::get('/entites/organisme/{organisme}', [EntiteProductriceController::class, 'byOrganisme'])->name('entites.by-organisme');
+    Route::get('/entites/hierarchy/{organisme?}', [EntiteProductriceController::class, 'hierarchy'])->name('entites.hierarchy');
+    Route::get('/entites/{entite}/children', [EntiteProductriceController::class, 'children'])->name('entites.children');
+    Route::get('/entites/{entite}/breadcrumb', [EntiteProductriceController::class, 'breadcrumb'])->name('entites.breadcrumb');
+    Route::get('/entites/{entite}/statistics', [EntiteProductriceController::class, 'statistics'])->name('entites.statistics'); // Add this line
+});
 
 });
 
