@@ -228,13 +228,13 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">
+                <a class="nav-link {{ request()->routeIs('admin.plan-classement.*') ? 'active' : '' }}" href="{{ route('admin.plan-classement.index') }}">
                     <i class="fas fa-layer-group"></i>
                     Plan de classement
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="#">
+                <a class="nav-link {{ request()->routeIs('admin.calendrier-conservation.*') ? 'active' : '' }}" href="{{ route('admin.calendrier-conservation.index') }}">
                     <i class="fas fa-calendar"></i>
                     Calendrier de conservation
                 </a>

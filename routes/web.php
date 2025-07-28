@@ -5,6 +5,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\OrganismeController;
 use App\Http\Controllers\EntiteProductriceController;
+use App\Http\Controllers\PlanClassementController;
+use App\Http\Controllers\CalendrierConservationController;
 Route::get('/', function () {
     return view('welcome');
 });
@@ -77,6 +79,45 @@ Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/entites/{entite}/children', [EntiteProductriceController::class, 'children'])->name('entites.children');
         Route::get('/entites/{entite}/breadcrumb', [EntiteProductriceController::class, 'breadcrumb'])->name('entites.breadcrumb');
     });
+    // Ajoutez ces routes dans routes/web.php dans la section admin middleware
+
+// Gestion du plan de classement
+Route::prefix('admin/plan-classement')->name('admin.plan-classement.')->group(function () {
+    Route::get('/', [PlanClassementController::class, 'index'])->name('index');
+    Route::get('/create', [PlanClassementController::class, 'create'])->name('create');
+    Route::post('/', [PlanClassementController::class, 'store'])->name('store');
+    Route::get('/{planClassement}', [PlanClassementController::class, 'show'])->name('show');
+    Route::get('/{planClassement}/edit', [PlanClassementController::class, 'edit'])->name('edit');
+    Route::put('/{planClassement}', [PlanClassementController::class, 'update'])->name('update');
+    Route::delete('/{planClassement}', [PlanClassementController::class, 'destroy'])->name('destroy');
+    Route::get('/export/excel', [PlanClassementController::class, 'export'])->name('export');
+    Route::post('/bulk-action', [PlanClassementController::class, 'bulkAction'])->name('bulk-action');
+});
+
+// Gestion du calendrier de conservation
+Route::prefix('admin/calendrier-conservation')->name('admin.calendrier-conservation.')->group(function () {
+    Route::get('/', [CalendrierConservationController::class, 'index'])->name('index');
+    Route::get('/create', [CalendrierConservationController::class, 'create'])->name('create');
+    Route::post('/', [CalendrierConservationController::class, 'store'])->name('store');
+    Route::get('/{calendrierConservation}', [CalendrierConservationController::class, 'show'])->name('show');
+    Route::get('/{calendrierConservation}/edit', [CalendrierConservationController::class, 'edit'])->name('edit');
+    Route::put('/{calendrierConservation}', [CalendrierConservationController::class, 'update'])->name('update');
+    Route::delete('/{calendrierConservation}', [CalendrierConservationController::class, 'destroy'])->name('destroy');
+    Route::get('/export/excel', [CalendrierConservationController::class, 'export'])->name('export');
+    Route::post('/bulk-action', [CalendrierConservationController::class, 'bulkAction'])->name('bulk-action');
+    Route::get('/plan/{planClassement}', [CalendrierConservationController::class, 'getReglesByPlan'])->name('by-plan');
+});
+
+// API routes supplémentaires
+Route::prefix('api')->name('api.')->group(function () {
+    Route::get('/plan-classement', [PlanClassementController::class, 'api'])->name('plan-classement');
+    Route::get('/calendrier-conservation/plan/{planClassementId}', [CalendrierConservationController::class, 'byPlanClassement'])->name('calendrier-conservation.by-plan');
+    Route::get('/plan-classement/statistics', [PlanClassementController::class, 'statistics'])->name('plan-classement.statistics');
+    Route::get('/calendrier-conservation/statistics', [CalendrierConservationController::class, 'statistics'])->name('calendrier-conservation.statistics');
+});
+
+
+
 });
 
 // Gestionnaire archives only routes
