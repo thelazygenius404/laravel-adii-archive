@@ -2,13 +2,13 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\OrganismeController;
 use App\Http\Controllers\EntiteProductriceController;
 use App\Http\Controllers\PlanClassementController;
 use App\Http\Controllers\CalendrierConservationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserDashboardController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -22,7 +22,20 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
-        return view('dashboard', compact('user'));
+        // Redirection automatique selon le rôle
+        switch ($user->role) {
+            case 'admin':
+                return redirect()->route('admin.dashboard');
+            case 'gestionnaire_archives':
+                return redirect()->route('archives.dashboard');
+            case 'service_producteurs':
+                return redirect()->route('producteurs.dashboard');
+            case 'user':
+                return redirect()->route('user.dashboard');
+            default:
+                // Fallback si le rôle n'est pas reconnu
+                return view('dashboard', compact('user'));
+        }
     })->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -38,7 +51,7 @@ Route::middleware(['auth', 'admin'])->group(function () {
     // Dashboard admin
     
     Route::get('/admin/dashboard', function () {
-        return view('dashboard');
+        return view('admin.dashboard');
     })->name('admin.dashboard');
     
     // Gestion des utilisateurs
@@ -160,5 +173,10 @@ Route::middleware(['auth', 'service_producteurs'])->group(function () {
         return view('producteurs.entities');
     })->name('producteurs.entities');
 });
-
+// NOUVEAU : Routes pour les utilisateurs standard
+Route::middleware(['auth', 'user'])->group(function () {
+    Route::get('/user/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+    Route::get('/user/profile', [UserDashboardController::class, 'profile'])->name('user.profile');
+    Route::get('/user/notifications', [UserDashboardController::class, 'notifications'])->name('user.notifications');
+});
 require __DIR__.'/auth.php';

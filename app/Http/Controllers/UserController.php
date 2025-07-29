@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -58,7 +57,7 @@ class UserController extends Controller
             'prenom' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:utilisateurs',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:admin,gestionnaire_archives,service_producteurs',
+            'role' => 'required|in:admin,gestionnaire_archives,service_producteurs,user', // Ajout du rôle 'user'
         ], [
             'nom.required' => 'Le nom est obligatoire.',
             'prenom.required' => 'Le prénom est obligatoire.',
@@ -105,7 +104,7 @@ class UserController extends Controller
             'prenom' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('utilisateurs')->ignore($user->id)],
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|in:admin,gestionnaire_archives,service_producteurs',
+            'role' => 'required|in:admin,gestionnaire_archives,service_producteurs,user', // Ajout du rôle 'user'
         ], [
             'nom.required' => 'Le nom est obligatoire.',
             'prenom.required' => 'Le prénom est obligatoire.',

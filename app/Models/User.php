@@ -83,7 +83,10 @@ class User extends Authenticatable
     {
         return $this->role === 'service_producteurs';
     }
-    
+    public function isUser()
+    {
+        return $this->role === 'user';
+    }
     // Get full name
     public function getFullNameAttribute()
     {
@@ -97,6 +100,7 @@ class User extends Authenticatable
             'admin' => 'Administrateur',
             'gestionnaire_archives' => 'Gestionnaire Archives',
             'service_producteurs' => 'Service Producteurs',
+            'user' => 'Utilisateur', // Nouveau rôle ajouté
             default => $this->role
         };
     }
@@ -110,6 +114,7 @@ class User extends Authenticatable
             'admin' => 'Administrateur',
             'gestionnaire_archives' => 'Gestionnaire d\'archives',
             'service_producteurs' => 'Service producteurs',
+            'user' => 'Utilisateur', // Nouveau rôle ajouté
             default => $this->role
         };
     }

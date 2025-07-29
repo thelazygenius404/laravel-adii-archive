@@ -85,5 +85,23 @@ class UtilisateursSeeder extends Seeder
             'email_verified_at' => now(),
             'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DC-BM')->first()?->id,
         ]);
+        User::updateOrCreate(['email' => 'ichrak.laadimi@adii.gov.ma'], [
+            'nom' => 'Laadimi',
+            'prenom' => 'Ichrak',
+            'email' => 'ichrak.laadimi@adii.gov.ma',
+            'role' => 'user',
+            'password' => Hash::make('Ichrak123'),
+            'email_verified_at' => now(),
+            'id_entite_productrices' => $adiiDOD?->id,
+        ]);
+        User::updateOrCreate(['email' => 'bilal.elakry@adii.gov.ma'], [
+            'nom' => 'Elakry',
+            'prenom' => 'Bilal',
+            'email' => 'bilal.elakry@adii.gov.ma',
+            'role' => 'user',
+            'password' => Hash::make('bilal123'),
+            'email_verified_at' => now(),
+            'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DC-SE')->first()?->id,
+        ]);
     }
 }
