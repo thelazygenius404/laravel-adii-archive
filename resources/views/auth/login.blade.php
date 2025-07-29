@@ -288,23 +288,7 @@
                     @enderror
                 </div>
 
-                <!-- Rôle -->
-                <div class="form-group">
-                    <label for="role" class="form-label">Rôle <span style="color: #ef4444;">*</span></label>
-                    <select id="role" 
-                            name="role" 
-                            class="form-select @error('role') is-invalid @enderror" 
-                            required>
-                        <option value="" disabled {{ old('role') ? '' : 'selected' }}>-- Sélectionnez un rôle --</option>
-                        <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Administrateur</option>
-                        <option value="gestionnaire_archives" {{ old('role') == 'gestionnaire_archives' ? 'selected' : '' }}>Gestionnaire des dépôts</option>
-                        <option value="service_producteurs" {{ old('role') == 'service_producteurs' ? 'selected' : '' }}>Service Producteurs</option>
-                        <option value="user" {{ old('role') == 'user' ? 'selected' : '' }}>Utilisateur</option>
-                    </select>
-                    @error('role')
-                        <span class="error-message">{{ $message }}</span>
-                    @enderror
-                </div>
+               
 
                 <button type="submit" class="login-button" id="submitBtn">CONNEXION</button>
             </form>
