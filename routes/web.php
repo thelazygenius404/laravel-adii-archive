@@ -9,6 +9,13 @@ use App\Http\Controllers\CalendrierConservationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserDashboardController;
+use App\Http\Controllers\StockageController;
+use App\Http\Controllers\SalleController;
+use App\Http\Controllers\TraveeController;
+use App\Http\Controllers\TabletteController;
+use App\Http\Controllers\PositionController;
+use App\Http\Controllers\BoiteController;
+use App\Http\Controllers\DossierController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -149,9 +156,70 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/entites/{entite}/breadcrumb', [EntiteProductriceController::class, 'breadcrumb'])->name('entites.breadcrumb');
     Route::get('/entites/{entite}/statistics', [EntiteProductriceController::class, 'statistics'])->name('entites.statistics'); // Add this line
 });
+  // Dashboard stockage
+    Route::get('/stockage', [StockageController::class, 'index'])->name('stockage.index');
+    Route::get('/stockage/hierarchy/{organisme?}', [StockageController::class, 'hierarchy'])->name('stockage.hierarchy');
+    Route::get('/stockage/search', [StockageController::class, 'search'])->name('stockage.search');
+    Route::get('/stockage/optimize', [StockageController::class, 'optimizeStorage'])->name('stockage.optimize');
+    Route::get('/stockage/export', [StockageController::class, 'exportReport'])->name('stockage.export');
+    Route::get('/stockage/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('stockage.statistics');
+    Route::get('/stockage/positions/available', [StockageController::class, 'findAvailablePositions'])->name('stockage.positions.available');
+
+    // Gestion des salles
+    Route::resource('salles', SalleController::class);
+    Route::put('/salles/{salle}/capacity', [SalleController::class, 'updateCapacity'])->name('salles.update-capacity');
+    Route::get('/salles/organisme/{organisme}', [SalleController::class, 'byOrganisme'])->name('salles.by-organisme');
+    Route::get('/salles/export', [SalleController::class, 'export'])->name('salles.export');
+    Route::get('/salles/statistics', [SalleController::class, 'statistics'])->name('salles.statistics');
+
+    // Gestion des travées
+    Route::resource('travees', TraveeController::class);
+    Route::get('/travees/salle/{salle}', [TraveeController::class, 'bySalle'])->name('travees.by-salle');
+
+    // Gestion des tablettes
+    Route::resource('tablettes', TabletteController::class);
+    Route::get('/tablettes/travee/{travee}', [TabletteController::class, 'byTravee'])->name('tablettes.by-travee');
+
+    // Gestion des positions
+    Route::resource('positions', PositionController::class);
+    Route::get('/positions/tablette/{tablette}', [PositionController::class, 'byTablette'])->name('positions.by-tablette');
+    Route::put('/positions/{position}/toggle', [PositionController::class, 'toggleStatus'])->name('positions.toggle');
+
+    // Gestion des boîtes
+    Route::resource('boites', BoiteController::class);
+    Route::put('/boites/{boite}/destroy-box', [BoiteController::class, 'destroyBox'])->name('boites.destroy-box');
+    Route::put('/boites/{boite}/restore-box', [BoiteController::class, 'restoreBox'])->name('boites.restore-box');
+    Route::get('/boites/position/{position}', [BoiteController::class, 'byPosition'])->name('boites.by-position');
+    Route::get('/boites/export', [BoiteController::class, 'export'])->name('boites.export');
+    Route::get('/boites/low-occupancy', [BoiteController::class, 'lowOccupancy'])->name('boites.low-occupancy');
+    Route::get('/boites/available-space', [BoiteController::class, 'findAvailableSpace'])->name('boites.available-space');
+    Route::post('/boites/bulk-action', [BoiteController::class, 'bulkAction'])->name('boites.bulk-action');
+
+    // Gestion des dossiers
+    Route::resource('dossiers', DossierController::class);
+    Route::get('/dossiers/elimination/due', [DossierController::class, 'dueForElimination'])->name('dossiers.elimination');
+    Route::post('/dossiers/mark-elimination', [DossierController::class, 'markForElimination'])->name('dossiers.mark-elimination');
+    Route::post('/dossiers/archive', [DossierController::class, 'archiveDossiers'])->name('dossiers.archive');
+    Route::get('/dossiers/export', [DossierController::class, 'export'])->name('dossiers.export');
+    Route::get('/dossiers/statistics', [DossierController::class, 'statistics'])->name('dossiers.statistics');
 
 });
-
+// Routes API pour les utilisateurs authentifiés
+Route::middleware(['auth'])->prefix('api')->name('api.')->group(function () {
+    
+    // API pour recherche rapide
+    Route::get('/stockage/search', [StockageController::class, 'search'])->name('stockage.search');
+    
+    // API pour récupérer les données liées
+    Route::get('/salles/organisme/{organisme}', [SalleController::class, 'byOrganisme'])->name('salles.by-organisme');
+    Route::get('/travees/salle/{salle}', [TraveeController::class, 'bySalle'])->name('travees.by-salle');
+    Route::get('/tablettes/travee/{travee}', [TabletteController::class, 'byTravee'])->name('tablettes.by-travee');
+    Route::get('/positions/tablette/{tablette}', [PositionController::class, 'byTablette'])->name('positions.by-tablette');
+    Route::get('/positions/available', [StockageController::class, 'findAvailablePositions'])->name('positions.available');
+    
+    // API pour les statistiques
+    Route::get('/stockage/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('stockage.statistics');
+});
 // Gestionnaire archives only routes
 Route::middleware(['auth', 'gestionnaire'])->group(function () {
     Route::get('/archives/dashboard', function () {
