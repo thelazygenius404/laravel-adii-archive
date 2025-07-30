@@ -228,7 +228,7 @@
                                                        class="btn btn-outline-primary" title="Modifier">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    <a href="{{ route('stockage.hierarchy') }}?salle={{ $salle->id }}" 
+                                                    <a href="{{ route('admin.stockage.hierarchy') }}?salle={{ $salle->id }}" 
                                                        class="btn btn-outline-success" title="Structure">
                                                         <i class="fas fa-sitemap"></i>
                                                     </a>
@@ -330,7 +330,7 @@
                                                 <a href="{{ route('admin.salles.show', $salle) }}" class="btn btn-sm btn-outline-primary flex-fill">
                                                     <i class="fas fa-eye me-1"></i>Voir
                                                 </a>
-                                                <a href="{{ route('stockage.hierarchy') }}?salle={{ $salle->id }}" class="btn btn-sm btn-outline-success flex-fill">
+                                                <a href="{{ route('admin.stockage.hierarchy') }}?salle={{ $salle->id }}" class="btn btn-sm btn-outline-success flex-fill">
                                                     <i class="fas fa-sitemap me-1"></i>Structure
                                                 </a>
                                             </div>

@@ -505,7 +505,7 @@
 
     function dismissRecommendation(id) {
         if (confirm('Voulez-vous ignorer cette recommandation ?')) {
-            fetch(`{{ route('stockage.optimize') }}/dismiss/${id}`, {
+            fetch(`{{ route('admin.stockage.optimize') }}/dismiss/${id}`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -523,7 +523,7 @@
 
     function dismissAction(id) {
         if (confirm('Voulez-vous ignorer cette action urgente ?')) {
-            fetch(`{{ route('stockage.optimize') }}/dismiss-action/${id}`, {
+            fetch(`{{ route('admin.stockage.optimize') }}/dismiss-action/${id}`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -571,7 +571,7 @@
         modal.show();
         
         // Charger le contenu spécifique de l'action
-        fetch(`{{ route('stockage.optimize') }}/action/${action}${id ? '/' + id : ''}`)
+        fetch(`{{ route('admin.stockage.optimize') }}/action/${action}${id ? '/' + id : ''}`)
             .then(response => response.text())
             .then(html => {
                 document.getElementById('optimizationModalContent').innerHTML = html;
@@ -584,7 +584,7 @@
 
     function markAsCompleted(actionId) {
         if (confirm('Marquer cette action comme terminée ?')) {
-            fetch(`{{ route('stockage.optimize') }}/complete/${actionId}`, {
+            fetch(`{{ route('admin.stockage.optimize') }}/complete/${actionId}`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -601,7 +601,7 @@
     }
 
     function exportReport() {
-        window.location.href = '{{ route("stockage.optimize") }}?export=1';
+        window.location.href = '{{ route("admin.stockage.optimize") }}?export=1';
     }
 
     // Confirmation de l'action d'optimisation

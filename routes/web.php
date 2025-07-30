@@ -56,7 +56,6 @@ Route::middleware('auth')->group(function () {
 // Admin only routes
 Route::middleware(['auth', 'admin'])->group(function () {
     // Dashboard admin
-    
     Route::get('/admin/dashboard', function () {
         return view('admin.dashboard');
     })->name('admin.dashboard');
@@ -156,8 +155,8 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/entites/{entite}/breadcrumb', [EntiteProductriceController::class, 'breadcrumb'])->name('entites.breadcrumb');
     Route::get('/entites/{entite}/statistics', [EntiteProductriceController::class, 'statistics'])->name('entites.statistics'); // Add this line
 });
-  // Dashboard stockage
-    Route::get('/stockage', [StockageController::class, 'index'])->name('stockage.index');
+// Routes pour la gestion du stockage
+   Route::get('/stockage', [StockageController::class, 'index'])->name('stockage.index');
     Route::get('/stockage/hierarchy/{organisme?}', [StockageController::class, 'hierarchy'])->name('stockage.hierarchy');
     Route::get('/stockage/search', [StockageController::class, 'search'])->name('stockage.search');
     Route::get('/stockage/optimize', [StockageController::class, 'optimizeStorage'])->name('stockage.optimize');
@@ -202,6 +201,111 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::post('/dossiers/archive', [DossierController::class, 'archiveDossiers'])->name('dossiers.archive');
     Route::get('/dossiers/export', [DossierController::class, 'export'])->name('dossiers.export');
     Route::get('/dossiers/statistics', [DossierController::class, 'statistics'])->name('dossiers.statistics');
+  // Dashboard stockage
+    Route::prefix('admin/stockage')->name('admin.stockage.')->group(function () {
+        Route::get('/', [StockageController::class, 'index'])->name('index');
+        Route::get('/hierarchy/{organisme?}', [StockageController::class, 'hierarchy'])->name('hierarchy');
+        Route::get('/search', [StockageController::class, 'search'])->name('search');
+        Route::get('/optimize', [StockageController::class, 'optimizeStorage'])->name('optimize');
+        Route::get('/export', [StockageController::class, 'exportReport'])->name('export');
+        Route::get('/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('statistics');
+        Route::get('/positions/available', [StockageController::class, 'findAvailablePositions'])->name('positions.available');
+    });
+
+    // Gestion des salles avec préfixe et nom appropriés
+    Route::prefix('admin/salles')->name('admin.salles.')->group(function () {
+        Route::get('/', [SalleController::class, 'index'])->name('index');
+        Route::get('/create', [SalleController::class, 'create'])->name('create');
+        Route::post('/', [SalleController::class, 'store'])->name('store');
+        Route::get('/{salle}', [SalleController::class, 'show'])->name('show');
+        Route::get('/{salle}/edit', [SalleController::class, 'edit'])->name('edit');
+        Route::put('/{salle}', [SalleController::class, 'update'])->name('update');
+        Route::delete('/{salle}', [SalleController::class, 'destroy'])->name('destroy');
+        
+        // Routes supplémentaires
+        Route::put('/{salle}/capacity', [SalleController::class, 'updateCapacity'])->name('update-capacity');
+        Route::get('/organisme/{organisme}', [SalleController::class, 'byOrganisme'])->name('by-organisme');
+        Route::get('/export', [SalleController::class, 'export'])->name('export');
+        Route::get('/statistics', [SalleController::class, 'statistics'])->name('statistics');
+    });
+
+    // Gestion des travées avec préfixe et nom appropriés
+    Route::prefix('admin/travees')->name('admin.travees.')->group(function () {
+        Route::get('/', [TraveeController::class, 'index'])->name('index');
+        Route::get('/create', [TraveeController::class, 'create'])->name('create');
+        Route::post('/', [TraveeController::class, 'store'])->name('store');
+        Route::get('/{travee}', [TraveeController::class, 'show'])->name('show');
+        Route::get('/{travee}/edit', [TraveeController::class, 'edit'])->name('edit');
+        Route::put('/{travee}', [TraveeController::class, 'update'])->name('update');
+        Route::delete('/{travee}', [TraveeController::class, 'destroy'])->name('destroy');
+        
+        Route::get('/salle/{salle}', [TraveeController::class, 'bySalle'])->name('by-salle');
+    });
+
+    // Gestion des tablettes avec préfixe et nom appropriés
+    Route::prefix('admin/tablettes')->name('admin.tablettes.')->group(function () {
+        Route::get('/', [TabletteController::class, 'index'])->name('index');
+        Route::get('/create', [TabletteController::class, 'create'])->name('create');
+        Route::post('/', [TabletteController::class, 'store'])->name('store');
+        Route::get('/{tablette}', [TabletteController::class, 'show'])->name('show');
+        Route::get('/{tablette}/edit', [TabletteController::class, 'edit'])->name('edit');
+        Route::put('/{tablette}', [TabletteController::class, 'update'])->name('update');
+        Route::delete('/{tablette}', [TabletteController::class, 'destroy'])->name('destroy');
+        
+        Route::get('/travee/{travee}', [TabletteController::class, 'byTravee'])->name('by-travee');
+    });
+
+    // Gestion des positions avec préfixe et nom appropriés
+    Route::prefix('admin/positions')->name('admin.positions.')->group(function () {
+        Route::get('/', [PositionController::class, 'index'])->name('index');
+        Route::get('/create', [PositionController::class, 'create'])->name('create');
+        Route::post('/', [PositionController::class, 'store'])->name('store');
+        Route::get('/{position}', [PositionController::class, 'show'])->name('show');
+        Route::get('/{position}/edit', [PositionController::class, 'edit'])->name('edit');
+        Route::put('/{position}', [PositionController::class, 'update'])->name('update');
+        Route::delete('/{position}', [PositionController::class, 'destroy'])->name('destroy');
+        
+        Route::get('/tablette/{tablette}', [PositionController::class, 'byTablette'])->name('by-tablette');
+        Route::put('/{position}/toggle', [PositionController::class, 'toggleStatus'])->name('toggle');
+    });
+
+    // Gestion des boîtes avec préfixe et nom appropriés
+    Route::prefix('admin/boites')->name('admin.boites.')->group(function () {
+        Route::get('/', [BoiteController::class, 'index'])->name('index');
+        Route::get('/create', [BoiteController::class, 'create'])->name('create');
+        Route::post('/', [BoiteController::class, 'store'])->name('store');
+        Route::get('/{boite}', [BoiteController::class, 'show'])->name('show');
+        Route::get('/{boite}/edit', [BoiteController::class, 'edit'])->name('edit');
+        Route::put('/{boite}', [BoiteController::class, 'update'])->name('update');
+        Route::delete('/{boite}', [BoiteController::class, 'destroy'])->name('destroy');
+        
+        // Routes supplémentaires
+        Route::put('/{boite}/destroy-box', [BoiteController::class, 'destroyBox'])->name('destroy-box');
+        Route::put('/{boite}/restore-box', [BoiteController::class, 'restoreBox'])->name('restore-box');
+        Route::get('/position/{position}', [BoiteController::class, 'byPosition'])->name('by-position');
+        Route::get('/export', [BoiteController::class, 'export'])->name('export');
+        Route::get('/low-occupancy', [BoiteController::class, 'lowOccupancy'])->name('low-occupancy');
+        Route::get('/available-space', [BoiteController::class, 'findAvailableSpace'])->name('available-space');
+        Route::post('/bulk-action', [BoiteController::class, 'bulkAction'])->name('bulk-action');
+    });
+
+    // Gestion des dossiers avec préfixe et nom appropriés
+    Route::prefix('admin/dossiers')->name('admin.dossiers.')->group(function () {
+        Route::get('/', [DossierController::class, 'index'])->name('index');
+        Route::get('/create', [DossierController::class, 'create'])->name('create');
+        Route::post('/', [DossierController::class, 'store'])->name('store');
+        Route::get('/{dossier}', [DossierController::class, 'show'])->name('show');
+        Route::get('/{dossier}/edit', [DossierController::class, 'edit'])->name('edit');
+        Route::put('/{dossier}', [DossierController::class, 'update'])->name('update');
+        Route::delete('/{dossier}', [DossierController::class, 'destroy'])->name('destroy');
+        
+        // Routes supplémentaires
+        Route::get('/elimination/due', [DossierController::class, 'dueForElimination'])->name('elimination');
+        Route::post('/mark-elimination', [DossierController::class, 'markForElimination'])->name('mark-elimination');
+        Route::post('/archive', [DossierController::class, 'archiveDossiers'])->name('archive');
+        Route::get('/export', [DossierController::class, 'export'])->name('export');
+        Route::get('/statistics', [DossierController::class, 'statistics'])->name('statistics');
+    });
 
 });
 // Routes API pour les utilisateurs authentifiés
@@ -247,4 +351,5 @@ Route::middleware(['auth', 'user'])->group(function () {
     Route::get('/user/profile', [UserDashboardController::class, 'profile'])->name('user.profile');
     Route::get('/user/notifications', [UserDashboardController::class, 'notifications'])->name('user.notifications');
 });
+
 require __DIR__.'/auth.php';

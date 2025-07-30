@@ -442,9 +442,9 @@
     function filterByOrganisme() {
         const organismeId = document.getElementById('organismeFilter').value;
         if (organismeId) {
-            window.location.href = `{{ route('stockage.hierarchy') }}?organisme=${organismeId}`;
+            window.location.href = `{{ route('admin.stockage.hierarchy') }}?organisme=${organismeId}`;
         } else {
-            window.location.href = `{{ route('stockage.hierarchy') }}`;
+            window.location.href = `{{ route('admin.stockage.hierarchy') }}`;
         }
     }
 

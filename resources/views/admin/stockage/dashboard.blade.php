@@ -11,7 +11,7 @@
             Gestion des Espaces de Stockage
         </h1>
         <div class="btn-group">
-            <a href="{{ route('stockage.hierarchy') }}" class="btn btn-primary">
+            <a href="{{ route('admin.stockage.hierarchy') }}" class="btn btn-primary">
                 <i class="fas fa-sitemap me-2"></i>
                 Vue Hiérarchique
             </a>
@@ -338,7 +338,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                <a href="{{ route('stockage.optimize') }}" class="btn btn-primary">
+                <a href="{{ route('admin.stockage.optimize') }}" class="btn btn-primary">
                     <i class="fas fa-magic me-2"></i>
                     Voir le rapport complet
                 </a>

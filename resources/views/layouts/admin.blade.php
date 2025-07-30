@@ -240,77 +240,13 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.stockage.*', 'admin.salles.*', 'admin.boites.*', 'admin.travees.*', 'admin.tablettes.*', 'admin.positions.*') ? 'active' : '' }}" 
+                <a class="nav-link {{ request()->routeIs('admin.stockage.*') ? 'active' : '' }}" href="{{ route('admin.stockage.index') }}" 
                    href="#" onclick="toggleSubmenu('stockageSubmenu', this)">
                     <i class="fas fa-warehouse"></i>
                     Gestion des Espaces de stockage
-                    <i class="fas fa-chevron-down chevron-icon"></i>
+                   
                 </a>
-                <ul class="nav flex-column sidebar-submenu" id="stockageSubmenu">
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.stockage.index') ? 'active' : '' }}" 
-                           href="{{ route('admin.stockage.index') }}">
-                            <i class="fas fa-chart-pie"></i>
-                            Tableau de bord
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.stockage.hierarchy') ? 'active' : '' }}" 
-                           href="{{ route('admin.stockage.hierarchy') }}">
-                            <i class="fas fa-sitemap"></i>
-                            Vue hiérarchique
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.stockage.search') ? 'active' : '' }}" 
-                           href="{{ route('admin.stockage.search') }}">
-                            <i class="fas fa-search"></i>
-                            Recherche avancée
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.stockage.optimize') ? 'active' : '' }}" 
-                           href="{{ route('admin.stockage.optimize') }}">
-                            <i class="fas fa-magic"></i>
-                            Optimisation
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.salles.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.salles.index') }}">
-                            <i class="fas fa-home"></i>
-                            Salles
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.travees.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.travees.index') }}">
-                            <i class="fas fa-layer-group"></i>
-                            Travées
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.tablettes.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.tablettes.index') }}">
-                            <i class="fas fa-table"></i>
-                            Tablettes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.positions.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.positions.index') }}">
-                            <i class="fas fa-map-marker-alt"></i>
-                            Positions
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.boites.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.boites.index') }}">
-                            <i class="fas fa-box"></i>
-                            Boîtes
-                        </a>
-                    </li>
-                </ul>
+               
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="#">
