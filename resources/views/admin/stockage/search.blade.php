@@ -11,7 +11,7 @@
             Recherche dans les Espaces de Stockage
         </h1>
         <div class="btn-group">
-            <a href="{{ route('stockage.index') }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.stockage.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>
                 Retour au tableau de bord
             </a>
@@ -358,7 +358,7 @@
     // Effacer la recherche
     function clearSearch() {
         document.getElementById('searchForm').reset();
-        window.location.href = '{{ route("stockage.search") }}';
+        window.location.href = '{{ route("admin.stockage.search") }}';
     }
 
     // Basculer entre vue liste et grille
@@ -384,7 +384,7 @@
     function exportResults() {
         const params = new URLSearchParams(window.location.search);
         params.set('export', '1');
-        window.location.href = '{{ route("stockage.search") }}?' + params.toString();
+        window.location.href = '{{ route("admin.stockage.search") }}?' + params.toString();
     }
 
     // Filtrage dynamique des salles par organisme

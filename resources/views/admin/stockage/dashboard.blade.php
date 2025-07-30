@@ -21,10 +21,10 @@
                     Actions
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ route('stockage.optimize') }}">
+                    <li><a class="dropdown-item" href="{{ route('admin.stockage.optimize') }}">
                         <i class="fas fa-magic me-2"></i>Optimiser le stockage
                     </a></li>
-                    <li><a class="dropdown-item" href="{{ route('stockage.export') }}">
+                    <li><a class="dropdown-item" href="{{ route('admin.stockage.export') }}">
                         <i class="fas fa-download me-2"></i>Exporter rapport
                     </a></li>
                     <li><hr class="dropdown-divider"></li>
@@ -184,11 +184,11 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ route('stockage.hierarchy') }}?organisme={{ $utilisation['nom'] }}" 
+                                            <a href="{{ route('admin.stockage.hierarchy') }}?organisme={{ $utilisation['nom'] }}" 
                                                class="btn btn-outline-info">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ route('stockage.statistics', ['organisme' => $utilisation['nom']]) }}" 
+                                            <a href="{{ route('admin.stockage.statistics', ['organisme' => $utilisation['nom']]) }}" 
                                                class="btn btn-outline-primary">
                                                 <i class="fas fa-chart-line"></i>
                                             </a>
@@ -383,7 +383,7 @@
         
         try {
             // Construire l'URL avec le paramètre ajax
-            const url = new URL('{{ route("stockage.optimize") }}', window.location.origin);
+            const url = new URL('{{ route("admin.stockage.optimize") }}', window.location.origin);
             url.searchParams.append('ajax', '1');
             
             const response = await fetch(url.toString(), {

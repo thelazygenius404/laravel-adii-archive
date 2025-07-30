@@ -14,7 +14,7 @@
             @endif
         </h1>
         <div class="btn-group">
-            <a href="{{ route('stockage.index') }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.stockage.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>
                 Retour au tableau de bord
             </a>
@@ -590,7 +590,7 @@
         
         const organismeParam = currentOrganisme ? `?organisme_id=${currentOrganisme}` : '';
         
-        fetch(`{{ route('stockage.positions.available') }}${organismeParam}`)
+        fetch(`{{ route('admin.stockage.positions.available') }}${organismeParam}`)
             .then(response => response.json())
             .then(data => {
                 const tbody = document.getElementById('availablePositionsTable');
@@ -626,7 +626,7 @@
     // Exporter la hiérarchie
     function exportHierarchy() {
         const organismeParam = currentOrganisme ? `?organisme_id=${currentOrganisme}` : '';
-        window.location.href = `{{ route('stockage.export') }}${organismeParam}`;
+        window.location.href = `{{ route('admin.stockage.export') }}${organismeParam}`;
     }
 
     // Mettre à jour les statistiques

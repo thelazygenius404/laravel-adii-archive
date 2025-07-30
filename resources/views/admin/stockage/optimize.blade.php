@@ -11,7 +11,7 @@
             Optimisation du Stockage
         </h1>
         <div class="btn-group">
-            <a href="{{ route('stockage.index') }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.stockage.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>
                 Retour au tableau de bord
             </a>
@@ -481,7 +481,7 @@
         btn.disabled = true;
 
         const organismeId = document.getElementById('organisme_id').value;
-        const url = '{{ route("stockage.optimize") }}' + (organismeId ? '?organisme_id=' + organismeId : '');
+        const url = '{{ route("admin.stockage.optimize") }}' + (organismeId ? '?organisme_id=' + organismeId : '');
 
         fetch(url, {
             headers: {
@@ -552,7 +552,7 @@
     const organismeId = document.getElementById('organisme_id').value;
     
     // Utiliser directement la méthode exportReport du controller
-    let url = '{{ route("stockage.optimize") }}';
+    let url = '{{ route("admin.stockage.optimize") }}';
     
     // Si vous avez une route séparée pour l'export, décommentez la ligne suivante:
     // let url = '/admin/stockage/export-report';

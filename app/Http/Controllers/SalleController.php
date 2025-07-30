@@ -14,7 +14,7 @@ class SalleController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Salle::with('organisme');
+        $query = Salle::with(['organisme', 'travees.tablettes']);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -26,14 +26,26 @@ class SalleController extends Controller
             $query->where('organisme_id', $request->organisme_id);
         }
 
-        $salles = $query->withCount('travees')
-                       ->orderBy('nom')
-                       ->paginate($request->get('per_page', 15))
-                       ->withQueryString();
+        $salles = $query->withCount(['travees', 'tablettes'])
+                    ->orderBy('nom')
+                    ->paginate($request->get('per_page', 15))
+                    ->withQueryString();
 
         $organismes = Organisme::orderBy('nom_org')->get();
 
-        return view('admin.salles.index', compact('salles', 'organismes'));
+        // Calculate statistics for the dashboard
+        $stats = [
+            'total' => Salle::count(),
+            'actives' => Salle::where('capacite_actuelle', '>', 0)->count(),
+            'utilisation_moyenne' => Salle::where('capacite_max', '>', 0)
+                                        ->get()
+                                        ->avg(function ($salle) {
+                                            return $salle->utilisation_percentage;
+                                        }) ?: 0,
+            'positions_totales' => Salle::sum('capacite_max'),
+        ];
+
+        return view('admin.salles.index', compact('salles', 'organismes', 'stats'));
     }
 
     /**

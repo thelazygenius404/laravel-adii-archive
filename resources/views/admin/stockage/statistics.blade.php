@@ -12,7 +12,7 @@
             <span class="text-muted">- {{ $organisme->nom_org }}</span>
         </h1>
         <div class="btn-group">
-            <a href="{{ route('stockage.hierarchy', $organisme) }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.stockage.hierarchy', $organisme) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-sitemap me-2"></i>
                 Vue hiérarchique
             </a>

@@ -193,7 +193,7 @@
                                             </td>
                                             <td>
                                                 <div class="text-center">
-                                                    <strong>{{ $salle->capacite_totale }}</strong>
+                                                    <strong>{{ $salle->capacite_actuelle }}/{{ $salle->capacite_max }}</strong>
                                                     <br><small class="text-muted">positions</small>
                                                 </div>
                                             </td>
@@ -201,16 +201,16 @@
                                                 <div class="d-flex align-items-center">
                                                     <div class="progress me-2" style="width: 100px; height: 8px;">
                                                         <div class="progress-bar bg-{{ $salle->utilisation_percentage < 50 ? 'success' : ($salle->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
-                                                             style="width: {{ $salle->utilisation_percentage }}%"></div>
+                                                            style="width: {{ $salle->utilisation_percentage }}%"></div>
                                                     </div>
                                                     <small>{{ number_format($salle->utilisation_percentage, 1) }}%</small>
                                                 </div>
-                                                <small class="text-muted">{{ $salle->positions_occupees }}/{{ $salle->capacite_totale }}</small>
+                                                <small class="text-muted">{{ $salle->capacite_actuelle }}/{{ $salle->capacite_max }}</small>
                                             </td>
                                             <td>
                                                 <div class="d-flex gap-1">
                                                     <span class="badge bg-info">{{ $salle->travees_count }} travée(s)</span>
-                                                    <span class="badge bg-secondary">{{ $salle->tablettes_count }} tablette(s)</span>
+                                                    <span class="badge bg-secondary">{{ $salle->tablettes()->count() }} tablette(s)</span>
                                                 </div>
                                             </td>
                                             <td>
@@ -320,7 +320,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="col-4">
-                                                    <h6 class="mb-0">{{ $salle->positions_occupees }}</h6>
+                                                    <h6 class="mb-0">{{ $salle->capacite_actuelle }}</h6>
                                                     <small class="text-muted">Occupées</small>
                                                 </div>
                                             </div>

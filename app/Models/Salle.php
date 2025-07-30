@@ -75,6 +75,39 @@ class Salle extends Model
     }
 
     /**
+     * Get total capacity (alias for capacite_max for backward compatibility).
+     */
+    public function getCapaciteTotaleAttribute()
+    {
+        return $this->capacite_max;
+    }
+
+    /**
+     * Get positions occupied (alias for capacite_actuelle).
+     */
+    public function getPositionsOccupeesAttribute()
+    {
+        return $this->capacite_actuelle;
+    }
+
+    /**
+     * Get tablettes count.
+     */
+    public function getTablettesCountAttribute()
+    {
+        return $this->tablettes()->count();
+    }
+
+    /**
+     * Get last activity (placeholder - implement based on your needs).
+     */
+    public function getDerniereActiviteAttribute()
+    {
+        // Return null for now - you can implement this based on your activity tracking
+        return null;
+    }
+
+    /**
      * Check if salle is full.
      */
     public function isFull()
