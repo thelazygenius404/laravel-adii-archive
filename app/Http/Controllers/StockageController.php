@@ -10,7 +10,7 @@ use App\Models\Boite;
 use App\Models\Dossier;
 use App\Models\Organisme;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Log;
 class StockageController extends Controller
 {
     /**
@@ -38,7 +38,7 @@ class StockageController extends Controller
                     'nom' => $organisme->nom_org,
                     'capacite_max' => $organisme->salles->sum('capacite_max'),
                     'capacite_actuelle' => $organisme->salles->sum('capacite_actuelle'),
-                    'utilisation_percentage' => $organisme->utilisation_percentage,
+                    'utilisation_percentage' => $organisme->salles->sum('capacite_max') > 0 ? ($organisme->salles->sum('capacite_actuelle') / $organisme->salles->sum('capacite_max')) * 100 : 0,
                 ];
             });
 
@@ -138,37 +138,102 @@ class StockageController extends Controller
      */
     public function optimizeStorage(Request $request)
     {
+        if ($request->has('export')) {
+            $type = $request->get('type', 'optimization');
+            return $this->exportOptimizationReport($request->get('organisme_id'), $type);
+        }
+        
         $organismeId = $request->get('organisme_id');
         
-        // Find boites with low occupancy
-        $boitesPartielle = Boite::active()
-            ->whereRaw('nbr_dossiers < capacite * 0.5')
-            ->when($organismeId, function ($q) use ($organismeId) {
-                $q->whereHas('position.tablette.travee.salle', function ($query) use ($organismeId) {
-                    $query->where('organisme_id', $organismeId);
-                });
-            })
-            ->with(['position.tablette.travee.salle', 'dossiers'])
-            ->get();
+        try {
+            // Find boites with low occupancy
+            $boitesPartielle = Boite::active()
+                ->whereRaw('nbr_dossiers < capacite * 0.5')
+                ->when($organismeId, function ($q) use ($organismeId) {
+                    $q->whereHas('position.tablette.travee.salle', function ($query) use ($organismeId) {
+                        $query->where('organisme_id', $organismeId);
+                    });
+                })
+                ->with(['position.tablette.travee.salle.organisme', 'dossiers'])
+                ->get();
 
-        // Find positions that could be freed
-        $positionsOptimisables = $boitesPartielle->map(function ($boite) {
-            return [
-                'boite' => $boite->numero,
-                'localisation' => $boite->full_location,
-                'capacite' => $boite->capacite,
-                'occupation' => $boite->nbr_dossiers,
-                'taux_occupation' => $boite->utilisation_percentage,
-                'dossiers' => $boite->dossiers->count(),
-                'suggestions' => $this->generateOptimizationSuggestions($boite),
+            // Créer un tableau simple
+            $positionsOptimisables = [];
+            
+            foreach ($boitesPartielle as $boite) {
+                $positionsOptimisables[] = [
+                    'boite' => [
+                        'id' => (int) $boite->id,
+                        'numero' => (string) ($boite->numero ?? ''),
+                        'code_thematique' => (string) ($boite->code_thematique ?? ''),
+                    ],
+                    'localisation' => (string) ($boite->full_location ?? 'Non définie'),
+                    'capacite' => (int) ($boite->capacite ?? 0),
+                    'occupation' => (int) ($boite->nbr_dossiers ?? 0),
+                    'taux_occupation' => (float) round($boite->utilisation_percentage ?? 0, 1),
+                    'dossiers_count' => (int) $boite->dossiers->count(),
+                    'suggestions' => $this->generateOptimizationSuggestions($boite),
+                ];
+            }
+
+            // Statistiques - utiliser count() sur les tableaux
+            $totalBoites = $boitesPartielle->count();
+            $totalOptimisables = count($positionsOptimisables);
+            
+            $stats = [
+                'total_boites_analysees' => $totalBoites,
+                'positions_potentiellement_liberables' => $totalOptimisables,
+                'espace_total_recuperable' => 0,
+                'taux_optimisation_possible' => 0
             ];
-        });
+            
+            // Calculer l'espace récupérable
+            foreach ($positionsOptimisables as $item) {
+                $stats['espace_total_recuperable'] += ($item['capacite'] - $item['occupation']);
+            }
+            
+            // Calculer le taux d'optimisation
+            if ($totalBoites > 0) {
+                $stats['taux_optimisation_possible'] = round(($totalOptimisables / $totalBoites) * 100, 2);
+            }
 
-        return response()->json([
-            'total_boites_analysees' => $boitesPartielle->count(),
-            'positions_potentiellement_liberables' => $positionsOptimisables->count(),
-            'optimisations' => $positionsOptimisables,
-        ]);
+            // Si c'est une requête AJAX, retourner JSON avec tableau
+            if ($request->ajax() || $request->has('ajax')) {
+                return response()->json([
+                    'success' => true,
+                    'stats' => $stats,
+                    'optimisations' => $positionsOptimisables, // Tableau pour JSON
+                ]);
+            }
+
+            // Récupérer la liste des organismes pour le filtre
+            $organismes = Organisme::orderBy('nom_org')->get();
+            $organismeSelectionne = null;
+            if ($organismeId) {
+                $organismeSelectionne = Organisme::find($organismeId);
+            }
+
+            // IMPORTANT: Convertir en collection pour la vue HTML
+            return view('admin.stockage.optimize', [
+                'stats' => $stats,
+                'positionsOptimisables' => collect($positionsOptimisables), // ← Collection pour Blade
+                'organismes' => $organismes,
+                'organismeSelectionne' => $organismeSelectionne
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Erreur optimisation stockage: ' . $e->getMessage());
+            
+            if ($request->ajax() || $request->has('ajax')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Erreur lors de l\'analyse d\'optimisation',
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+            
+            return redirect()->back()->withErrors(['error' => 'Erreur lors de l\'analyse d\'optimisation: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -178,16 +243,33 @@ class StockageController extends Controller
     {
         $suggestions = [];
 
-        if ($boite->utilisation_percentage < 30) {
-            $suggestions[] = 'Considérer la consolidation avec une autre boîte';
-        }
+        try {
+            $utilisationPercentage = $boite->utilisation_percentage ?? 0;
+            $nbrDossiers = $boite->nbr_dossiers ?? 0;
 
-        if ($boite->nbr_dossiers == 0) {
-            $suggestions[] = 'Boîte vide - peut être supprimée';
-        }
+            if ($utilisationPercentage < 30) {
+                $suggestions[] = 'Considérer la consolidation avec une autre boîte';
+            }
 
-        if ($boite->utilisation_percentage < 50 && $boite->nbr_dossiers > 0) {
-            $suggestions[] = 'Optimiser l\'espace en regroupant les dossiers';
+            if ($nbrDossiers == 0) {
+                $suggestions[] = 'Boîte vide - peut être supprimée';
+            }
+
+            if ($utilisationPercentage < 50 && $nbrDossiers > 0) {
+                $suggestions[] = 'Optimiser l\'espace en regroupant les dossiers';
+            }
+            
+            if ($utilisationPercentage > 0 && $utilisationPercentage < 25) {
+                $suggestions[] = 'Très faible utilisation - action recommandée';
+            }
+
+            // Si aucune suggestion spécifique, ajouter une suggestion générale
+            if (empty($suggestions)) {
+                $suggestions[] = 'Surveillance recommandée';
+            }
+
+        } catch (\Exception $e) {
+            $suggestions[] = 'Erreur lors de l\'analyse';
         }
 
         return $suggestions;
@@ -474,4 +556,58 @@ class StockageController extends Controller
         // Implementation would be similar to above methods but more comprehensive
         return $this->exportUtilizationReport($organismeId);
     }
+    private function exportOptimizationReport($organismeId, $type = 'optimization')
+{
+    $filename = 'rapport_optimisation_' . date('Y-m-d_H-i-s') . '.csv';
+
+    $headers = [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ];
+
+    $callback = function() use ($organismeId) {
+        $file = fopen('php://output', 'w');
+        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        fputcsv($file, [
+            'Boîte',
+            'Code Thématique', 
+            'Localisation',
+            'Capacité',
+            'Occupation',
+            'Utilisation (%)',
+            'Organisme',
+            'Suggestions'
+        ], ';');
+        
+        // Récupérer les données d'optimisation
+        $query = Boite::active()
+            ->whereRaw('nbr_dossiers < capacite * 0.5')
+            ->when($organismeId, function ($q) use ($organismeId) {
+                $q->whereHas('position.tablette.travee.salle', function ($query) use ($organismeId) {
+                    $query->where('organisme_id', $organismeId);
+                });
+            })
+            ->with(['position.tablette.travee.salle.organisme']);
+            
+        foreach ($query->get() as $boite) {
+            $suggestions = implode(', ', $this->generateOptimizationSuggestions($boite));
+            
+            fputcsv($file, [
+                $boite->numero,
+                $boite->code_thematique,
+                $boite->full_location,
+                $boite->capacite,
+                $boite->nbr_dossiers,
+                $boite->utilisation_percentage,
+                $boite->position->tablette->travee->salle->organisme->nom_org,
+                $suggestions
+            ], ';');
+        }
+        
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+ }
 }

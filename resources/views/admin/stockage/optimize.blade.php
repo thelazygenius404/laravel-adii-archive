@@ -27,14 +27,47 @@
     </div>
 </div>
 
+<!-- Filtres -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" id="filterForm">
+                    <div class="row align-items-end">
+                        <div class="col-md-4">
+                            <label for="organisme_id" class="form-label">Filtrer par organisme</label>
+                            <select name="organisme_id" id="organisme_id" class="form-select" onchange="submitFilter()">
+                                <option value="">Tous les organismes</option>
+                                @foreach($organismes as $org)
+                                    <option value="{{ $org->id }}" {{ $organismeSelectionne && $organismeSelectionne->id == $org->id ? 'selected' : '' }}>
+                                        {{ $org->nom_org }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            @if($organismeSelectionne)
+                                <div class="alert alert-info mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Analyse pour: <strong>{{ $organismeSelectionne->nom_org }}</strong>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Résumé de l'optimisation -->
 <div class="row mb-4">
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card border-info">
             <div class="card-body text-center">
-                <i class="fas fa-lightbulb text-info fa-3x mb-3"></i>
-                <h3 class="text-info">{{ $recommendations->count() }}</h3>
-                <p class="text-muted mb-0">Recommandations</p>
+                <i class="fas fa-box text-info fa-3x mb-3"></i>
+                <h3 class="text-info">{{ $stats['total_boites_analysees'] }}</h3>
+                <p class="text-muted mb-0">Boîtes analysées</p>
             </div>
         </div>
     </div>
@@ -42,250 +75,90 @@
         <div class="card border-warning">
             <div class="card-body text-center">
                 <i class="fas fa-compress-arrows-alt text-warning fa-3x mb-3"></i>
-                <h3 class="text-warning">{{ $spaceOptimization['potential_savings'] ?? 0 }}%</h3>
-                <p class="text-muted mb-0">Économie d'espace potentielle</p>
+                <h3 class="text-warning">{{ $stats['positions_potentiellement_liberables'] }}</h3>
+                <p class="text-muted mb-0">Positions libérables</p>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6 mb-3">
         <div class="card border-success">
             <div class="card-body text-center">
-                <i class="fas fa-box text-success fa-3x mb-3"></i>
-                <h3 class="text-success">{{ $inefficientBoxes->count() }}</h3>
-                <p class="text-muted mb-0">Boîtes à optimiser</p>
+                <i class="fas fa-cube text-success fa-3x mb-3"></i>
+                <h3 class="text-success">{{ $stats['espace_total_recuperable'] }}</h3>
+                <p class="text-muted mb-0">Espace récupérable</p>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-danger">
+        <div class="card border-primary">
             <div class="card-body text-center">
-                <i class="fas fa-exclamation-triangle text-danger fa-3x mb-3"></i>
-                <h3 class="text-danger">{{ $urgentActions->count() }}</h3>
-                <p class="text-muted mb-0">Actions urgentes</p>
+                <i class="fas fa-percentage text-primary fa-3x mb-3"></i>
+                <h3 class="text-primary">{{ $stats['taux_optimisation_possible'] }}%</h3>
+                <p class="text-muted mb-0">Taux d'optimisation</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Actions urgentes -->
-@if($urgentActions->count() > 0)
+<!-- Actions rapides -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card border-danger">
-            <div class="card-header bg-danger text-white">
+        <div class="card">
+            <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Actions Urgentes Requises
+                    <i class="fas fa-bolt me-2"></i>
+                    Actions Rapides d'Optimisation
                 </h5>
             </div>
             <div class="card-body">
                 <div class="row">
-                    @foreach($urgentActions as $action)
-                        <div class="col-md-6 mb-3">
-                            <div class="alert alert-danger mb-0">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-{{ $action['icon'] }} fa-2x me-3"></i>
-                                    <div class="flex-grow-1">
-                                        <h6 class="alert-heading mb-1">{{ $action['title'] }}</h6>
-                                        <p class="mb-2">{{ $action['description'] }}</p>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{{ $action['action_url'] }}" class="btn btn-outline-danger">
-                                                {{ $action['action_text'] }}
-                                            </a>
-                                            <button class="btn btn-outline-secondary" onclick="dismissAction({{ $action['id'] }})">
-                                                Ignorer
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-primary" onclick="consolidateBoxes()">
+                                <i class="fas fa-compress-alt me-2"></i>
+                                Consolider les boîtes
+                            </button>
                         </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-<!-- Analyse détaillée -->
-<div class="row mb-4">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-chart-bar me-2"></i>
-                    Analyse Détaillée des Recommandations
-                </h5>
-            </div>
-            <div class="card-body">
-                @if($recommendations->count() > 0)
-                    <div class="accordion" id="recommendationsAccordion">
-                        @foreach($recommendations->groupBy('category') as $category => $categoryRecommendations)
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" id="heading{{ Str::slug($category) }}">
-                                    <button class="accordion-button {{ $loop->first ? '' : 'collapsed' }}" 
-                                            type="button" 
-                                            data-bs-toggle="collapse" 
-                                            data-bs-target="#collapse{{ Str::slug($category) }}">
-                                        <i class="fas fa-{{ $categoryRecommendations->first()['icon'] ?? 'lightbulb' }} me-2"></i>
-                                        {{ $category }} 
-                                        <span class="badge bg-primary ms-2">{{ $categoryRecommendations->count() }}</span>
-                                    </button>
-                                </h2>
-                                <div id="collapse{{ Str::slug($category) }}" 
-                                     class="accordion-collapse collapse {{ $loop->first ? 'show' : '' }}" 
-                                     data-bs-parent="#recommendationsAccordion">
-                                    <div class="accordion-body">
-                                        @foreach($categoryRecommendations as $recommendation)
-                                            <div class="recommendation-item mb-3 p-3 border rounded">
-                                                <div class="d-flex align-items-start">
-                                                    <div class="flex-grow-1">
-                                                        <h6 class="mb-1">{{ $recommendation['title'] }}</h6>
-                                                        <p class="text-muted mb-2">{{ $recommendation['description'] }}</p>
-                                                        
-                                                        @if(isset($recommendation['impact']))
-                                                            <div class="mb-2">
-                                                                <span class="badge bg-info">
-                                                                    Impact: {{ $recommendation['impact'] }}
-                                                                </span>
-                                                                @if(isset($recommendation['priority']))
-                                                                    <span class="badge bg-{{ $recommendation['priority'] == 'high' ? 'danger' : ($recommendation['priority'] == 'medium' ? 'warning' : 'success') }}">
-                                                                        Priorité: {{ ucfirst($recommendation['priority']) }}
-                                                                    </span>
-                                                                @endif
-                                                            </div>
-                                                        @endif
-
-                                                        @if(isset($recommendation['details']) && is_array($recommendation['details']))
-                                                            <ul class="list-unstyled mb-2">
-                                                                @foreach($recommendation['details'] as $detail)
-                                                                    <li><i class="fas fa-arrow-right text-muted me-2"></i>{{ $detail }}</li>
-                                                                @endforeach
-                                                            </ul>
-                                                        @endif
-                                                    </div>
-                                                    <div class="ms-3">
-                                                        @if(isset($recommendation['action_url']))
-                                                            <a href="{{ $recommendation['action_url'] }}" class="btn btn-sm btn-primary">
-                                                                <i class="fas fa-play me-1"></i>
-                                                                Appliquer
-                                                            </a>
-                                                        @endif
-                                                        <button class="btn btn-sm btn-outline-secondary" onclick="dismissRecommendation({{ $recommendation['id'] }})">
-                                                            <i class="fas fa-times me-1"></i>
-                                                            Ignorer
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
                     </div>
-                @else
-                    <div class="text-center py-5">
-                        <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
-                        <h5 class="text-success">Excellent !</h5>
-                        <p class="text-muted">Votre système de stockage est déjà bien optimisé. Aucune recommandation d'amélioration pour le moment.</p>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-info" onclick="redistributeFiles()">
+                                <i class="fas fa-random me-2"></i>
+                                Redistribuer les dossiers
+                            </button>
+                        </div>
                     </div>
-                @endif
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <!-- Statistiques d'optimisation -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-chart-pie me-2"></i>
-                    Répartition de l'utilisation
-                </h6>
-            </div>
-            <div class="card-body">
-                <canvas id="utilizationChart" width="400" height="200"></canvas>
-            </div>
-        </div>
-
-        <!-- Actions rapides -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-bolt me-2"></i>
-                    Actions Rapides
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-outline-primary btn-sm" onclick="consolidateBoxes()">
-                        <i class="fas fa-compress-alt me-2"></i>
-                        Consolider les boîtes
-                    </button>
-                    <button class="btn btn-outline-info btn-sm" onclick="redistributeFiles()">
-                        <i class="fas fa-random me-2"></i>
-                        Redistribuer les dossiers
-                    </button>
-                    <button class="btn btn-outline-success btn-sm" onclick="optimizeLocations()">
-                        <i class="fas fa-map-marked-alt me-2"></i>
-                        Optimiser les emplacements
-                    </button>
-                    <button class="btn btn-outline-warning btn-sm" onclick="scheduleElimination()">
-                        <i class="fas fa-trash me-2"></i>
-                        Planifier éliminations
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tendances -->
-        <div class="card">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-trending-up me-2"></i>
-                    Tendances d'utilisation
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-1">
-                        <small class="text-muted">Cette semaine</small>
-                        <small class="text-success">+{{ $trends['weekly_growth'] ?? 0 }}%</small>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-success" onclick="optimizeLocations()">
+                                <i class="fas fa-map-marked-alt me-2"></i>
+                                Optimiser les emplacements
+                            </button>
+                        </div>
                     </div>
-                    <div class="progress" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: {{ $trends['weekly_progress'] ?? 0 }}%"></div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-warning" onclick="scheduleElimination()">
+                                <i class="fas fa-trash me-2"></i>
+                                Planifier éliminations
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-1">
-                        <small class="text-muted">Ce mois</small>
-                        <small class="text-info">+{{ $trends['monthly_growth'] ?? 0 }}%</small>
-                    </div>
-                    <div class="progress" style="height: 6px;">
-                        <div class="progress-bar bg-info" style="width: {{ $trends['monthly_progress'] ?? 0 }}%"></div>
-                    </div>
-                </div>
-                <div class="text-center">
-                    <small class="text-muted">
-                        Projection: {{ $trends['projected_full'] ?? 'N/A' }}
-                    </small>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Boîtes inefficaces -->
-@if($inefficientBoxes->count() > 0)
+<!-- Boîtes optimisables -->
+@if(!empty($positionsOptimisables) && count($positionsOptimisables) > 0)
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-box me-2"></i>
-                    Boîtes à Faible Efficacité
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Boîtes Optimisables ({{ count($positionsOptimisables) }})
                 </h5>
             </div>
             <div class="card-body">
@@ -296,46 +169,52 @@
                                 <th>Boîte</th>
                                 <th>Localisation</th>
                                 <th>Utilisation</th>
-                                <th>Recommandations</th>
+                                <th>Suggestions</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($inefficientBoxes as $box)
+                            @foreach($positionsOptimisables as $item)
                                 <tr>
                                     <td>
-                                        <strong>{{ $box->numero }}</strong>
-                                        <br><small class="text-muted">{{ $box->code_thematique }}</small>
+                                        <strong>{{ $item['boite']['numero'] }}</strong>
+                                        <br><small class="text-muted">{{ $item['boite']['code_thematique'] }}</small>
                                     </td>
                                     <td>
-                                        <small class="text-muted">{{ $box->full_location }}</small>
+                                        <small class="text-muted">{{ $item['localisation'] }}</small>
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="progress me-2" style="width: 100px; height: 8px;">
-                                                <div class="progress-bar bg-{{ $box->utilisation_percentage < 30 ? 'danger' : ($box->utilisation_percentage < 50 ? 'warning' : 'success') }}" 
-                                                     style="width: {{ $box->utilisation_percentage }}%"></div>
+                                                <div class="progress-bar bg-{{ $item['taux_occupation'] < 30 ? 'danger' : ($item['taux_occupation'] < 50 ? 'warning' : 'success') }}" 
+                                                     style="width: {{ $item['taux_occupation'] }}%"></div>
                                             </div>
-                                            <small>{{ $box->utilisation_percentage }}%</small>
+                                            <small>{{ number_format($item['taux_occupation'], 1) }}%</small>
                                         </div>
-                                        <small class="text-muted">{{ $box->nbr_dossiers }}/{{ $box->capacite }} dossiers</small>
+                                        <small class="text-muted">{{ $item['occupation'] }}/{{ $item['capacite'] }} dossiers</small>
                                     </td>
                                     <td>
-                                        @foreach($box->recommendations as $rec)
-                                            <span class="badge bg-light text-dark me-1">{{ $rec }}</span>
-                                        @endforeach
+                                        @if(!empty($item['suggestions']))
+                                            @foreach($item['suggestions'] as $suggestion)
+                                                <span class="badge bg-light text-dark me-1 mb-1">{{ $suggestion }}</span>
+                                            @endforeach
+                                        @else
+                                            <span class="text-muted">Aucune suggestion</span>
+                                        @endif
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ route('admin.boites.show', $box) }}" class="btn btn-outline-info" title="Voir">
+                                            <a href="{{ route('admin.boites.show', $item['boite']['id']) }}" class="btn btn-outline-info" title="Voir">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <button class="btn btn-outline-warning" onclick="optimizeBox({{ $box->id }})" title="Optimiser">
+                                            <button class="btn btn-outline-warning" onclick="optimizeBox({{ $item['boite']['id'] }})" title="Optimiser">
                                                 <i class="fas fa-magic"></i>
                                             </button>
-                                            <button class="btn btn-outline-success" onclick="consolidateBox({{ $box->id }})" title="Consolider">
-                                                <i class="fas fa-compress-alt"></i>
-                                            </button>
+                                            @if($item['taux_occupation'] < 50 && $item['occupation'] > 0)
+                                                <button class="btn btn-outline-success" onclick="consolidateBox({{ $item['boite']['id'] }})" title="Consolider">
+                                                    <i class="fas fa-compress-alt"></i>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -347,66 +226,180 @@
         </div>
     </div>
 </div>
+@else
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-success">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+                <h5 class="text-success">Excellent !</h5>
+                <p class="text-muted">
+                    @if(isset($organismeSelectionne) && $organismeSelectionne)
+                        Le système de stockage de <strong>{{ $organismeSelectionne->nom_org }}</strong> est déjà bien optimisé.
+                    @else
+                        Votre système de stockage est déjà bien optimisé.
+                    @endif
+                    Aucune optimisation n'est nécessaire pour le moment.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 @endif
 
-<!-- Plan d'action -->
-<div class="row">
-    <div class="col-12">
+<!-- Analyse détaillée par catégorie -->
+<div class="row mb-4">
+    <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-tasks me-2"></i>
-                    Plan d'Action Recommandé
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Analyse Détaillée par Catégorie d'Utilisation
                 </h5>
             </div>
             <div class="card-body">
-                @if(isset($actionPlan) && count($actionPlan) > 0)
-                    <div class="timeline">
-                        @foreach($actionPlan as $index => $action)
-                            <div class="timeline-item">
-                                <div class="timeline-marker bg-{{ $action['priority_color'] ?? 'primary' }}">
-                                    {{ $index + 1 }}
-                                </div>
-                                <div class="timeline-content">
-                                    <h6>{{ $action['title'] }}</h6>
-                                    <p class="text-muted mb-2">{{ $action['description'] }}</p>
-                                    <div class="d-flex align-items-center mb-2">
-                                        <span class="badge bg-{{ $action['priority_color'] ?? 'primary' }} me-2">
-                                            {{ ucfirst($action['priority'] ?? 'normal') }}
-                                        </span>
-                                        <small class="text-muted">
-                                            <i class="fas fa-clock me-1"></i>
-                                            {{ $action['estimated_time'] ?? 'N/A' }}
-                                        </small>
-                                    </div>
-                                    @if(isset($action['steps']) && is_array($action['steps']))
-                                        <ol class="mb-2">
-                                            @foreach($action['steps'] as $step)
-                                                <li>{{ $step }}</li>
-                                            @endforeach
-                                        </ol>
-                                    @endif
-                                    <div class="btn-group btn-group-sm">
-                                        @if(isset($action['action_url']))
-                                            <a href="{{ $action['action_url'] }}" class="btn btn-primary">
-                                                <i class="fas fa-play me-1"></i>
-                                                Commencer
-                                            </a>
-                                        @endif
-                                        <button class="btn btn-outline-secondary" onclick="markAsCompleted({{ $action['id'] ?? $index }})">
-                                            <i class="fas fa-check me-1"></i>
-                                            Marquer comme terminé
+                @if($positionsOptimisables && $positionsOptimisables->count() > 0)
+                    @php
+                        $categories = [
+                            'vides' => $positionsOptimisables->filter(function($item) { return $item['occupation'] == 0; }),
+                            'tres_faible' => $positionsOptimisables->filter(function($item) { return $item['taux_occupation'] > 0 && $item['taux_occupation'] < 30; }),
+                            'faible' => $positionsOptimisables->filter(function($item) { return $item['taux_occupation'] >= 30 && $item['taux_occupation'] < 50; }),
+                        ];
+                    @endphp
+
+                    <div class="accordion" id="categoriesAccordion">
+                        @foreach($categories as $categoryKey => $categoryItems)
+                            @if($categoryItems->count() > 0)
+                                @php
+                                    $categoryInfo = [
+                                        'vides' => ['title' => 'Boîtes Vides', 'icon' => 'inbox', 'color' => 'danger'],
+                                        'tres_faible' => ['title' => 'Utilisation Très Faible (< 30%)', 'icon' => 'exclamation-triangle', 'color' => 'warning'],
+                                        'faible' => ['title' => 'Utilisation Faible (30-50%)', 'icon' => 'info-circle', 'color' => 'info']
+                                    ][$categoryKey];
+                                @endphp
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading{{ $categoryKey }}">
+                                        <button class="accordion-button {{ $loop->first ? '' : 'collapsed' }}" 
+                                                type="button" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#collapse{{ $categoryKey }}">
+                                            <i class="fas fa-{{ $categoryInfo['icon'] }} me-2"></i>
+                                            {{ $categoryInfo['title'] }}
+                                            <span class="badge bg-{{ $categoryInfo['color'] }} ms-2">{{ $categoryItems->count() }}</span>
                                         </button>
+                                    </h2>
+                                    <div id="collapse{{ $categoryKey }}" 
+                                         class="accordion-collapse collapse {{ $loop->first ? 'show' : '' }}" 
+                                         data-bs-parent="#categoriesAccordion">
+                                        <div class="accordion-body">
+                                            <div class="row">
+                                                @foreach($categoryItems as $item)
+                                                    @php $boite = $item['boite']; @endphp
+                                                    <div class="col-md-6 mb-3">
+                                                    <div class="card border-{{ $categoryInfo['color'] }}">
+                                                        <div class="card-body">
+                                                            <h6 class="card-title">{{ $item['boite']['numero'] }}</h6> {{-- CORRECTION --}}
+                                                            <p class="card-text small text-muted">{{ $item['localisation'] }}</p>
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <span class="badge bg-{{ $categoryInfo['color'] }}">
+                                                                    {{ number_format($item['taux_occupation'], 1) }}%
+                                                                </span>
+                                                                <small class="text-muted">{{ $item['occupation'] }}/{{ $item['capacite'] }}</small>
+                                                            </div>
+                                                            @foreach($item['suggestions'] as $suggestion)
+                                                                <small class="d-block text-muted">
+                                                                    <i class="fas fa-arrow-right me-1"></i>{{ $suggestion }}
+                                                                </small>
+                                                            @endforeach
+                                                            <div class="mt-2">
+                                                                <div class="btn-group btn-group-sm">
+                                                                    <a href="{{ route('admin.boites.show', $item['boite']['id']) }}" class="btn btn-outline-{{ $categoryInfo['color'] }}">
+                                                                        <i class="fas fa-eye"></i>
+                                                                    </a>
+                                                                    <button class="btn btn-outline-{{ $categoryInfo['color'] }}" onclick="optimizeBox({{ $item['boite']['id'] }})">
+                                                                        <i class="fas fa-magic"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                            </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            @endif
                         @endforeach
                     </div>
                 @else
-                    <div class="text-center py-4">
-                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
-                        <h6>Aucun plan d'action nécessaire</h6>
-                        <p class="text-muted">Votre système de stockage fonctionne de manière optimale.</p>
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+                        <h5 class="text-success">Parfait !</h5>
+                        <p class="text-muted">Toutes les boîtes sont utilisées de manière optimale.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques d'optimisation -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Répartition de l'efficacité
+                </h6>
+            </div>
+            <div class="card-body">
+                <canvas id="utilizationChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Recommandations générales -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Recommandations Générales
+                </h6>
+            </div>
+            <div class="card-body">
+                @if($stats['total_boites_analysees'] > 0)
+                    @if($stats['taux_optimisation_possible'] > 50)
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Optimisation recommandée</strong><br>
+                            Plus de 50% des boîtes peuvent être optimisées.
+                        </div>
+                    @elseif($stats['taux_optimisation_possible'] > 20)
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Améliorations possibles</strong><br>
+                            Quelques optimisations peuvent être effectuées.
+                        </div>
+                    @else
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Bon niveau d'optimisation</strong><br>
+                            Le système fonctionne efficacement.
+                        </div>
+                    @endif
+
+                    <ul class="list-unstyled mb-0">
+                        @if($stats['positions_potentiellement_liberables'] > 0)
+                            <li><i class="fas fa-arrow-right text-primary me-2"></i>{{ $stats['positions_potentiellement_liberables'] }} positions peuvent être libérées</li>
+                        @endif
+                        @if($stats['espace_total_recuperable'] > 0)
+                            <li><i class="fas fa-arrow-right text-success me-2"></i>{{ $stats['espace_total_recuperable'] }} emplacements récupérables</li>
+                        @endif
+                        <li><i class="fas fa-arrow-right text-info me-2"></i>Taux d'optimisation: {{ $stats['taux_optimisation_possible'] }}%</li>
+                    </ul>
+                @else
+                    <div class="text-muted text-center">
+                        <i class="fas fa-info-circle fa-2x mb-2"></i>
+                        <p>Aucune donnée à analyser</p>
                     </div>
                 @endif
             </div>
@@ -445,23 +438,22 @@
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <script>
+    // Données pour le graphique
+    @php
+        $vides = $positionsOptimisables ? $positionsOptimisables->filter(function($item) { return $item['occupation'] == 0; })->count() : 0;
+        $faibles = $positionsOptimisables ? $positionsOptimisables->filter(function($item) { return $item['taux_occupation'] > 0 && $item['taux_occupation'] < 50; })->count() : 0;
+        $bonnes = $stats['total_boites_analysees'] - $vides - $faibles;
+    @endphp
+
     // Graphique d'utilisation
     const ctx = document.getElementById('utilizationChart').getContext('2d');
     const utilizationChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Occupé', 'Libre', 'Inefficace'],
+            labels: ['Bien utilisées', 'Peu utilisées', 'Vides'],
             datasets: [{
-                data: [
-                    {{ $chartData['occupied'] ?? 0 }},
-                    {{ $chartData['free'] ?? 0 }},
-                    {{ $chartData['inefficient'] ?? 0 }}
-                ],
-                backgroundColor: [
-                    '#28a745',
-                    '#ffc107',
-                    '#dc3545'
-                ],
+                data: [{{ $bonnes }}, {{ $faibles }}, {{ $vides }}],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -478,65 +470,40 @@
     });
 
     // Fonctions d'optimisation
+    function submitFilter() {
+        document.getElementById('filterForm').submit();
+    }
+
     function runOptimization() {
         const btn = event.target;
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyse en cours...';
         btn.disabled = true;
 
-        fetch('{{ route("stockage.optimize") }}?reanalyze=1')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Erreur lors de l\'analyse');
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
+        const organismeId = document.getElementById('organisme_id').value;
+        const url = '{{ route("stockage.optimize") }}' + (organismeId ? '?organisme_id=' + organismeId : '');
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.stats) {
+                location.reload();
+            } else {
                 alert('Erreur lors de l\'analyse');
-            })
-            .finally(() => {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            });
-    }
-
-    function dismissRecommendation(id) {
-        if (confirm('Voulez-vous ignorer cette recommandation ?')) {
-            fetch(`{{ route('admin.stockage.optimize') }}/dismiss/${id}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
-            });
-        }
-    }
-
-    function dismissAction(id) {
-        if (confirm('Voulez-vous ignorer cette action urgente ?')) {
-            fetch(`{{ route('admin.stockage.optimize') }}/dismiss-action/${id}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
-            });
-        }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de l\'analyse');
+        })
+        .finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        });
     }
 
     function optimizeBox(boxId) {
@@ -570,45 +537,45 @@
         const modal = new bootstrap.Modal(document.getElementById('optimizationActionModal'));
         modal.show();
         
-        // Charger le contenu spécifique de l'action
-        fetch(`{{ route('admin.stockage.optimize') }}/action/${action}${id ? '/' + id : ''}`)
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('optimizationModalContent').innerHTML = html;
-            })
-            .catch(error => {
-                document.getElementById('optimizationModalContent').innerHTML = 
-                    '<div class="alert alert-danger">Erreur lors du chargement de l\'action.</div>';
-            });
-    }
-
-    function markAsCompleted(actionId) {
-        if (confirm('Marquer cette action comme terminée ?')) {
-            fetch(`{{ route('admin.stockage.optimize') }}/complete/${actionId}`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
-            });
-        }
+        document.getElementById('optimizationModalContent').innerHTML = 
+            '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Chargement...</p></div>';
+        
+        // Simulation du contenu (à adapter selon vos besoins)
+        setTimeout(() => {
+            document.getElementById('optimizationModalContent').innerHTML = 
+                '<div class="alert alert-info">Action: ' + title + (id ? ' (ID: ' + id + ')' : '') + '</div>' +
+                '<p>Cette fonctionnalité sera implémentée selon vos besoins spécifiques.</p>';
+        }, 1000);
     }
 
     function exportReport() {
-        window.location.href = '{{ route("admin.stockage.optimize") }}?export=1';
+    const organismeId = document.getElementById('organisme_id').value;
+    
+    // Utiliser directement la méthode exportReport du controller
+    let url = '{{ route("stockage.optimize") }}';
+    
+    // Si vous avez une route séparée pour l'export, décommentez la ligne suivante:
+    // let url = '/admin/stockage/export-report';
+    
+    if (organismeId) {
+        url += (url.includes('?') ? '&' : '?') + 'organisme_id=' + organismeId;
     }
+    
+    url += (url.includes('?') ? '&' : '?') + 'export=1&type=optimization';
+    
+    window.location.href = url;
+  }
+
 
     // Confirmation de l'action d'optimisation
     document.getElementById('confirmOptimizationAction').addEventListener('click', function() {
         const form = document.querySelector('#optimizationModalContent form');
         if (form) {
             form.submit();
+        } else {
+            // Action personnalisée
+            bootstrap.Modal.getInstance(document.getElementById('optimizationActionModal')).hide();
+            alert('Action confirmée');
         }
     });
 </script>
@@ -616,6 +583,38 @@
 
 @push('styles')
 <style>
+    .recommendation-item {
+        transition: all 0.3s ease;
+    }
+
+    .recommendation-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .progress {
+        background-color: #e9ecef;
+    }
+
+    .alert {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-body .fas.fa-4x {
+        opacity: 0.7;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: #e7f3ff;
+        color: #0c63e4;
+    }
+
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+
     .timeline {
         position: relative;
         padding-left: 40px;
@@ -662,36 +661,20 @@
         border-left: 4px solid var(--bs-primary);
     }
 
-    .recommendation-item {
-        transition: all 0.3s ease;
+    .btn-group .btn {
+        margin-right: 5px;
     }
 
-    .recommendation-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    .card-title {
+        font-weight: 600;
     }
 
-    .progress {
-        background-color: #e9ecef;
+    .badge {
+        font-size: 0.75em;
     }
 
-    .alert {
-        border: none;
-        border-radius: 10px;
-    }
-
-    .card-body .fas.fa-4x {
-        opacity: 0.7;
-    }
-
-    .accordion-button:not(.collapsed) {
-        background-color: #e7f3ff;
-        color: #0c63e4;
-    }
-
-    .accordion-button:focus {
-        box-shadow: none;
-        border-color: rgba(0,0,0,.125);
+    .table-responsive {
+        border-radius: 0.5rem;
     }
 </style>
 @endpush

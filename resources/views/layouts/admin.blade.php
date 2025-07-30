@@ -240,13 +240,10 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('admin.stockage.*') ? 'active' : '' }}" href="{{ route('admin.stockage.index') }}" 
-                   href="#" onclick="toggleSubmenu('stockageSubmenu', this)">
+                <a class="nav-link {{ request()->routeIs('admin.stockage.*') ? 'active' : '' }}" href="{{ route('admin.stockage.index') }}" >
                     <i class="fas fa-warehouse"></i>
-                    Gestion des Espaces de stockage
-                   
+                    Gestion des Espaces de stockage  
                 </a>
-               
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="#">

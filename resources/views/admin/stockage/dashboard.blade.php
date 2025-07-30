@@ -365,52 +365,116 @@
     });
 
     // Fonction pour afficher les suggestions d'optimisation
-    function showOptimizationSuggestions() {
+    async function showOptimizationSuggestions() {
         const modal = new bootstrap.Modal(document.getElementById('optimizationModal'));
         modal.show();
         
-        // Charger les suggestions via AJAX
-        fetch('{{ route("stockage.optimize") }}?ajax=1')
-            .then(response => response.json())
-            .then(data => {
-                const content = document.getElementById('optimizationContent');
-                
-                if (data.optimisations && data.optimisations.length > 0) {
-                    let html = '<div class="list-group">';
-                    
-                    data.optimisations.slice(0, 5).forEach(optimisation => {
-                        html += `
-                            <div class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${optimisation.boite}</h6>
-                                    <small class="text-muted">${optimisation.taux_occupation}%</small>
-                                </div>
-                                <p class="mb-1"><small class="text-muted">${optimisation.localisation}</small></p>
-                                <div class="d-flex gap-1">
-                                    ${optimisation.suggestions.map(suggestion => 
-                                        `<span class="badge bg-light text-dark">${suggestion}</span>`
-                                    ).join('')}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    html += '</div>';
-                    
-                    if (data.optimisations.length > 5) {
-                        html += `<p class="text-center mt-3 text-muted">Et ${data.optimisations.length - 5} autre(s) suggestion(s)...</p>`;
-                    }
-                    
-                    content.innerHTML = html;
-                } else {
-                    content.innerHTML = '<div class="text-center text-success"><i class="fas fa-check-circle fa-3x mb-3"></i><p>Aucune optimisation nécessaire. Votre stockage est bien organisé !</p></div>';
+        const contentElement = document.getElementById('optimizationContent');
+        
+        // Réinitialiser le contenu avec le spinner
+        contentElement.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-2">Analyse en cours...</p>
+            </div>
+        `;
+        
+        try {
+            // Construire l'URL avec le paramètre ajax
+            const url = new URL('{{ route("stockage.optimize") }}', window.location.origin);
+            url.searchParams.append('ajax', '1');
+            
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                document.getElementById('optimizationContent').innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle fa-3x mb-3"></i><p>Erreur lors du chargement des suggestions.</p></div>';
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.optimisations && Array.isArray(data.optimisations) && data.optimisations.length > 0) {
+                let html = '<div class="list-group">';
+                
+                // Limiter à 5 suggestions
+                const optimisationsToShow = data.optimisations.slice(0, 5);
+                
+                optimisationsToShow.forEach(optimisation => {
+                    // Vérifier que les propriétés existent
+                    const boiteNom = optimisation.boite?.numero || optimisation.boite || 'N/A';
+                    const localisation = optimisation.localisation || 'Non spécifiée';
+                    const tauxOccupation = optimisation.taux_occupation || 0;
+                    const suggestions = Array.isArray(optimisation.suggestions) ? optimisation.suggestions : [];
+                    
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${escapeHtml(boiteNom)}</h6>
+                                <small class="text-muted">${tauxOccupation}%</small>
+                            </div>
+                            <p class="mb-1">
+                                <small class="text-muted">${escapeHtml(localisation)}</small>
+                            </p>
+                            <div class="d-flex gap-1 flex-wrap">
+                                ${suggestions.map(suggestion => 
+                                    `<span class="badge bg-light text-dark">${escapeHtml(suggestion)}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                
+                // Ajouter un message s'il y a plus de 5 suggestions
+                if (data.optimisations.length > 5) {
+                    html += `<p class="text-center mt-3 text-muted">Et ${data.optimisations.length - 5} autre(s) suggestion(s)...</p>`;
+                }
+                
+                contentElement.innerHTML = html;
+            } else {
+                // Aucune optimisation nécessaire
+                contentElement.innerHTML = `
+                    <div class="text-center text-success">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>Aucune optimisation nécessaire. Votre stockage est bien organisé !</p>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            console.error('Erreur lors du chargement des suggestions:', error);
+            contentElement.innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>Erreur lors du chargement des suggestions.</p>
+                    <small class="text-muted">Détails: ${error.message}</small>
+                </div>
+            `;
+        }
     }
+
+    // Fonction utilitaire pour échapper le HTML
+    function escapeHtml(text) {
+        if (typeof text !== 'string') return text;
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
 
     // Auto-refresh des statistiques toutes les 5 minutes
     setInterval(function() {

@@ -125,7 +125,7 @@
                                 <i class="fas fa-home text-primary me-2"></i>
                                 <strong>{{ $salle->nom }}</strong>
                                 <span class="badge bg-primary ms-2">{{ $salle->organisme->nom_org }}</span>
-                                <span class="badge bg-info ms-1">{{ $salle->travees_count ?? 0 }} travée(s)</span>
+                                <span class="badge bg-info ms-1">{{ $salle->travees_count ?? $salle->travees->count() }} travée(s)</span>
                                 <div class="ms-auto d-flex align-items-center">
                                     <div class="progress me-2" style="width: 100px; height: 8px;">
                                         <div class="progress-bar bg-success" style="width: {{ $salle->utilisation_percentage }}%"></div>
@@ -140,9 +140,9 @@
                                             <i class="fas fa-chevron-down toggle-icon"></i>
                                             <i class="fas fa-layer-group text-success me-2"></i>
                                             <strong>{{ $travee->nom }}</strong>
-                                            <span class="badge bg-success ms-2">{{ $travee->tablettes_count ?? 0 }} tablette(s)</span>
+                                            <span class="badge bg-success ms-2">{{ $travee->tablettes_count ?? $travee->tablettes->count() }} tablette(s)</span>
                                             <div class="ms-auto">
-                                                <small class="text-muted">{{ $travee->positions_count ?? 0 }} positions</small>
+                                                <small class="text-muted">{{ $travee->positions_count ?? $travee->positions->count() }} positions</small>
                                             </div>
                                         </div>
                                         <div class="hierarchy-children">
@@ -152,9 +152,9 @@
                                                         <i class="fas fa-chevron-down toggle-icon"></i>
                                                         <i class="fas fa-table text-info me-2"></i>
                                                         <strong>{{ $tablette->nom }}</strong>
-                                                        <span class="badge bg-info ms-2">{{ $tablette->positions_count ?? 0 }} position(s)</span>
+                                                        <span class="badge bg-info ms-2">{{ $tablette->positions_count ?? $tablette->positions->count() }} position(s)</span>
                                                         <div class="ms-auto">
-                                                            <span class="badge bg-warning">{{ $tablette->positions_occupees ?? 0 }} occupée(s)</span>
+                                                            <span class="badge bg-warning">{{ $tablette->positions_occupees ?? $tablette->positions->where('vide', false)->count() }} occupée(s)</span>
                                                         </div>
                                                     </div>
                                                     <div class="hierarchy-children">
