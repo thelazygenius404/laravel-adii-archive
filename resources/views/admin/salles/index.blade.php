@@ -11,11 +11,16 @@
             Gestion des Salles
         </h1>
         <div class="btn-group">
+            <a href="{{ route('admin.stockage.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour au tableau de bord
+            </a>
             <a href="{{ route('admin.salles.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Salle
             </a>
-            <div class="btn-group" role="group">
+        <div class="btn-group" role="group">
+        
                 <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="fas fa-cogs me-1"></i>
                     Actions

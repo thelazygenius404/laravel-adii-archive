@@ -106,4 +106,19 @@ class Position extends Model
     {
         return $query->where('vide', false);
     }
+    public function prevPosition()
+    {
+        return $this->tablette->positions()
+            ->where('id', '<', $this->id)
+            ->orderBy('id', 'desc')
+            ->first();
+    }
+
+    public function nextPosition()
+    {
+        return $this->tablette->positions()
+            ->where('id', '>', $this->id)
+            ->orderBy('id', 'asc')
+            ->first();
+    }
 }

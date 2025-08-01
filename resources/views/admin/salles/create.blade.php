@@ -104,7 +104,26 @@
                             @enderror
                         </div>
                     </div>
+                     <!-- Capacité -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="capacite_max" class="form-label">Capacité maximale <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control @error('capacite_max') is-invalid @enderror" 
+                                   id="capacite_max" name="capacite_max" value="{{ old('capacite_max') }}" 
+                                   min="1" required>
+                            @error('capacite_max')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
 
+                        <div class="col-md-6 mb-3">
+                            <label for="capacite_actuelle" class="form-label">Capacité actuelle</label>
+                            <input type="number" class="form-control" 
+                                   id="capacite_actuelle" name="capacite_actuelle" 
+                                   value="{{ old('capacite_actuelle') }}" readonly>
+                            <small class="form-text text-muted">Cette valeur est calculée automatiquement</small>
+                        </div>
+                    </div>
                     <!-- Configuration de la structure -->
                     <hr class="my-4">
                     <h6 class="mb-3">
