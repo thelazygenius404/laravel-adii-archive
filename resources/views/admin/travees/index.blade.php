@@ -1,4 +1,4 @@
-{{-- resources/views/admin/travees/index.blade.php --}}
+{{-- resources/views/admin/travees/index.blade.php - VERSION CORRIGÉE --}}
 @extends('layouts.admin')
 
 @section('title', 'Gestion des Travées')
@@ -25,7 +25,7 @@
                         <i class="fas fa-download me-2"></i>Exporter la liste
                     </a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" onclick="bulkAction()">
+                    <li><a class="dropdown-item" href="#" onclick="showBulkActions()">
                         <i class="fas fa-tasks me-2"></i>Actions groupées
                     </a></li>
                 </ul>
@@ -170,7 +170,6 @@
                     <!-- Pagination -->
                     @if($travees->hasPages())
                         <div class="d-flex justify-content-center mt-4">
-                            
                             {{ $travees->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
                         </div>
                     @endif
@@ -193,61 +192,238 @@
 
 @push('scripts')
 <script>
-    // Sélection multiple
+    // Variables globales pour le debug
+    let selectedTravees = [];
+
+    // CORRECTION 1: Fonction de mise à jour de la sélection
+    function updateSelectedTravees() {
+        selectedTravees = Array.from(document.querySelectorAll('.travee-checkbox:checked')).map(cb => cb.value);
+        console.log('Travées sélectionnées:', selectedTravees);
+    }
+
+    // CORRECTION 2: Sélection multiple avec mise à jour
     document.getElementById('selectAll').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.travee-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        updateSelectedTravees();
+    });
+
+    // CORRECTION 3: Écouteur sur les checkboxes individuelles
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('travee-checkbox')) {
+            updateSelectedTravees();
+        }
     });
 
     // Supprimer une travée
     function deleteTravee(id) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette travée ? Cette action supprimera également toutes les tablettes et positions associées.')) {
-             const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `{{ route('admin.travees.index') }}/${id}`;
-        form.innerHTML = `
-            @csrf
-            @method('DELETE')
-        `;
-        document.body.appendChild(form);
-        form.submit();
-            // fetch(`{{ route('admin.travees.index') }}/${id}`, {
-            //     method: 'DELETE',
-            //     headers: {
-            //         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            //         'Content-Type': 'application/json',
-            //     },
-            // })
-            // .then(response => response.json())
-            // .then(data => {
-            //     if (data.success) {
-            //         location.reload();
-            //     } else {
-            //         alert('Erreur lors de la suppression: ' + (data.message || 'Erreur inconnue'));
-            //     }
-            // })
-            // .catch(error => {
-            //     console.error('Erreur:', error);
-            //     alert('Erreur lors de la suppression');
-            // });
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{{ route('admin.travees.index') }}/${id}`;
+            form.innerHTML = `
+                @csrf
+                @method('DELETE')
+            `;
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 
-    // Actions groupées
-    function bulkAction() {
-        const selected = Array.from(document.querySelectorAll('.travee-checkbox:checked')).map(cb => cb.value);
+    // CORRECTION 4: Actions groupées complètement refaites
+    function showBulkActions() {
+        updateSelectedTravees(); // S'assurer que la sélection est à jour
         
-        if (selected.length === 0) {
+        if (selectedTravees.length === 0) {
             alert('Veuillez sélectionner au moins une travée.');
             return;
         }
         
-        // Implémentation des actions groupées
-        console.log('Travées sélectionnées:', selected);
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('bulkActionsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // CORRECTION 5: Modal correct avec gestionnaires d'événements
+        const modalHtml = `
+            <div class="modal fade" id="bulkActionsModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Actions Groupées sur les Travées</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>${selectedTravees.length}</strong> travée(s) sélectionnée(s)
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Action à effectuer :</label>
+                                <select class="form-select" id="bulkActionSelect">
+                                    <option value="">Choisir une action...</option>
+                                    <option value="export">📤 Exporter la sélection</option>
+                                    <option value="delete">🗑️ Supprimer (travées vides uniquement)</option>
+                                    <option value="move">📦 Déplacer vers une autre salle</option>
+                                    <option value="optimize">⚡ Optimiser l'organisation</option>
+                                </select>
+                            </div>
+                            <div id="moveOptions" style="display: none;">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <label class="form-label">Nouvelle salle :</label>
+                                        <select class="form-select" id="newSalleId">
+                                            <option value="">Sélectionner une salle</option>
+                                            @foreach($salles as $salle)
+                                                <option value="{{ $salle->id }}">{{ $salle->nom }} ({{ $salle->organisme->nom_org }})</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="alert alert-warning mt-2 mb-0">
+                                            <small>⚠️ Cette action déplacera toutes les tablettes associées.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="executeBulkBtn" disabled>
+                                <i class="fas fa-cog me-2"></i>Exécuter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // CORRECTION 6: Attacher les événements APRÈS la création du modal
+        const modal = new bootstrap.Modal(document.getElementById('bulkActionsModal'));
+        
+        // Gérer l'affichage des options de déplacement
+        document.getElementById('bulkActionSelect').addEventListener('change', function() {
+            const moveOptions = document.getElementById('moveOptions');
+            const executeBtn = document.getElementById('executeBulkBtn');
+            
+            moveOptions.style.display = this.value === 'move' ? 'block' : 'none';
+            executeBtn.disabled = !this.value;
+        });
+        
+        // CORRECTION 7: Attacher l'événement au bouton Exécuter
+        document.getElementById('executeBulkBtn').addEventListener('click', function() {
+            executeTraveesBulkAction();
+        });
+        
+        modal.show();
     }
 
+    // CORRECTION 8: Fonction d'exécution corrigée
+    function executeTraveesBulkAction() {
+    const action = document.getElementById('bulkActionSelect').value;
+    const newSalleId = document.getElementById('newSalleId') ? document.getElementById('newSalleId').value : null;
+    
+    if (!action) {
+        alert('Veuillez sélectionner une action.');
+        return;
+    }
+    
+    if (action === 'move' && !newSalleId) {
+        alert('Veuillez sélectionner une salle de destination.');
+        return;
+    }
+    
+    // Désactiver le bouton pendant traitement
+    const executeBtn = document.getElementById('executeBulkBtn');
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
+    
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('travee_ids', JSON.stringify(selectedTravees));
+    if (newSalleId) {
+        formData.append('new_salle_id', newSalleId);
+    }
+    
+    // DEBUG DÉTAILLÉ
+    console.log('=== DEBUG REQUÊTE ===');
+    console.log('Action:', action);
+    console.log('Travées sélectionnées:', selectedTravees);
+    console.log('Nouvelle salle ID:', newSalleId);
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
+    fetch('{{ route("admin.travees.bulk-action") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: formData
+    })
+    .then(response => {
+        console.log('=== RÉPONSE SERVEUR ===');
+        console.log('Status:', response.status);
+        console.log('Headers:', response.headers);
+        
+        // IMPORTANT : Lire la réponse même en cas d'erreur 422
+        return response.text().then(text => {
+            console.log('Réponse brute:', text);
+            
+            try {
+                const data = JSON.parse(text);
+                console.log('Données JSON:', data);
+                
+                if (response.ok) {
+                    if (data.success) {
+                        alert(data.message);
+                        if (action !== 'export') {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert('Erreur: ' + data.message);
+                    }
+                } else {
+                    // ERREUR 422 - Afficher les détails de validation
+                    if (data.errors) {
+                        console.log('Erreurs de validation:', data.errors);
+                        let errorMessage = 'Erreurs de validation:\n';
+                        for (const [field, messages] of Object.entries(data.errors)) {
+                            errorMessage += `- ${field}: ${messages.join(', ')}\n`;
+                        }
+                        alert(errorMessage);
+                    } else {
+                        alert('Erreur de validation: ' + (data.message || 'Erreur inconnue'));
+                    }
+                }
+            } catch (e) {
+                console.error('Erreur parsing JSON:', e);
+                alert('Réponse invalide du serveur: ' + text);
+            }
+        });
+    })
+    .catch(error => {
+        console.error('=== ERREUR RÉSEAU ===');
+        console.error('Erreur:', error);
+        alert('Erreur réseau: ' + error.message);
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Exécuter';
+        
+        // Fermer le modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
+        if (modal) {
+            modal.hide();
+        }
+    });
+}
     // Exporter
     function exportTravees() {
         const params = new URLSearchParams(window.location.search);
@@ -265,6 +441,10 @@
             }
         }, 500);
     });
+
+    // CORRECTION 9: Debug des routes
+    console.log('Route bulk-action:', '{{ route("admin.travees.bulk-action") }}');
+    console.log('CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.content);
 </script>
 @endpush
 

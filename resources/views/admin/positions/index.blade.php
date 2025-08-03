@@ -144,18 +144,24 @@
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Localisation</th>
-                                    <th>Statut</th>
-                                    <th>Contenu</th>
-                                    <th>Dernière modification</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
+                                    <tr>
+                                        <th>
+                                            <input type="checkbox" class="form-check-input" id="selectAll">
+                                        </th>
+                                        <th>Position</th>
+                                        <th>Localisation</th>
+                                        <th>Statut</th>
+                                        <th>Contenu</th>
+                                        <th>Dernière modification</th>
+                                        <th>Actions</th>
+                                    </tr>
+                             </thead>
                             <tbody>
                                 @foreach($positions as $position)
                                     <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input position-checkbox" value="{{ $position->id }}">
+                                            </td>
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="position-icon me-2 bg-{{ $position->vide ? 'warning' : 'success' }}">
@@ -299,6 +305,167 @@
 
 @push('scripts')
 <script>
+    // Variables globales
+    let selectedPositions = [];
+
+    // Sélection multiple
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.position-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+        updateSelectedPositions();
+    });
+
+    // Mise à jour des positions sélectionnées
+    function updateSelectedPositions() {
+        selectedPositions = Array.from(document.querySelectorAll('.position-checkbox:checked')).map(cb => cb.value);
+        console.log('Positions sélectionnées:', selectedPositions);
+    }
+
+    // Ajouter des écouteurs sur les checkboxes individuelles
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('position-checkbox')) {
+            updateSelectedPositions();
+        }
+    });
+
+    // Actions groupées - Version corrigée
+    function showBulkActions() {
+        updateSelectedPositions(); // S'assurer que la sélection est à jour
+        
+        if (selectedPositions.length === 0) {
+            alert('Veuillez sélectionner au moins une position.');
+            return;
+        }
+        
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('bulkActionsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Créer le modal d'actions groupées
+        const modalHtml = `
+            <div class="modal fade" id="bulkActionsModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Actions Groupées</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p><strong>${selectedPositions.length}</strong> position(s) sélectionnée(s)</p>
+                            <div class="mb-3">
+                                <label class="form-label">Action à effectuer :</label>
+                                <select class="form-select" id="bulkActionSelect">
+                                    <option value="export">Exporter la sélection</option>
+                                    <option value="delete">Supprimer (positions libres uniquement)</option>
+                                    <option value="move">Déplacer vers une autre tablette</option>
+                                </select>
+                            </div>
+                            <div id="moveOptions" style="display: none;">
+                                <label class="form-label">Nouvelle tablette :</label>
+                                <select class="form-select" id="newTabletteId">
+                                    <option value="">Sélectionner une tablette</option>
+                                    @foreach($tablettes as $tablette)
+                                        <option value="{{ $tablette->id }}">{{ $tablette->nom }} ({{ $tablette->travee->nom }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="executeBulkBtn">Exécuter</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Attacher les événements APRÈS la création du modal
+        const modal = new bootstrap.Modal(document.getElementById('bulkActionsModal'));
+        
+        // Gérer l'affichage des options de déplacement
+        document.getElementById('bulkActionSelect').addEventListener('change', function() {
+            const moveOptions = document.getElementById('moveOptions');
+            moveOptions.style.display = this.value === 'move' ? 'block' : 'none';
+        });
+        
+        // Attacher l'événement au bouton Exécuter
+        document.getElementById('executeBulkBtn').addEventListener('click', function() {
+            executeBulkAction();
+        });
+        
+        modal.show();
+    }
+
+    // Exécuter l'action groupée - Version corrigée
+    function executeBulkAction() {
+        const action = document.getElementById('bulkActionSelect').value;
+        const newTabletteId = document.getElementById('newTabletteId') ? document.getElementById('newTabletteId').value : null;
+        
+        if (action === 'move' && !newTabletteId) {
+            alert('Veuillez sélectionner une tablette de destination.');
+            return;
+        }
+        
+        // Désactiver le bouton pendant le traitement
+        const executeBtn = document.getElementById('executeBulkBtn');
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
+        
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('position_ids', JSON.stringify(selectedPositions));
+        if (newTabletteId) {
+            formData.append('new_tablette_id', newTabletteId);
+        }
+        
+        fetch('{{ route("admin.positions.bulk-action") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                alert(data.message);
+                if (action === 'export') {
+                    // Pour l'export, le fichier sera téléchargé automatiquement
+                    console.log('Export effectué');
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue: ' + error.message);
+        })
+        .finally(() => {
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
+            if (modal) {
+                modal.hide();
+            }
+        });
+    }
+
     // Supprimer une position
     function deletePosition(id) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette position ?')) {
@@ -320,19 +487,6 @@
         window.location.href = `{{ route('admin.positions.index') }}/export?${params.toString()}`;
     }
 
-    // Actions groupées
-    function showBulkActions() {
-        const selected = Array.from(document.querySelectorAll('.position-checkbox:checked')).map(cb => cb.value);
-        
-        if (selected.length === 0) {
-            alert('Veuillez sélectionner au moins une position.');
-            return;
-        }
-        
-        // Implémenter les actions groupées
-        console.log('Actions groupées pour:', selected);
-    }
-    
     // Afficher le modal de création en masse
     function showBulkCreateModal() {
         const modal = new bootstrap.Modal(document.getElementById('bulkCreateModal'));
@@ -340,33 +494,52 @@
     }
     
     // Soumission du formulaire de création en masse
-    document.getElementById('bulkCreateForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(`${data.created} positions créées avec succès !`);
-                window.location.reload();
-            } else {
-                alert('Une erreur est survenue lors de la création.');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur est survenue.');
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        const bulkCreateForm = document.getElementById('bulkCreateForm');
+        if (bulkCreateForm) {
+            bulkCreateForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const submitBtn = document.querySelector('#bulkCreateModal .btn-primary');
+                const originalText = submitBtn.innerHTML;
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création...';
+                
+                fetch('{{ route("admin.positions.bulk-create") }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`${data.created || 0} position(s) créées avec succès !`);
+                        bootstrap.Modal.getInstance(document.getElementById('bulkCreateModal')).hide();
+                        window.location.reload();
+                    } else {
+                        alert('Erreur: ' + (data.message || 'Erreur inconnue'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Une erreur est survenue.');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
+        }
     });
+
+    // Debug: Vérifier si les routes existent
+    console.log('Route bulk-action:', '{{ route("admin.positions.bulk-action") }}');
+    console.log('Route bulk-create:', '{{ route("admin.positions.bulk-create") }}');
 </script>
 @endpush
 

@@ -49,6 +49,7 @@ class PositionController extends Controller
     public function create()
     {
         $tablettes = Tablette::with('travee.salle')->orderBy('nom')->get();
+        
         return view('admin.positions.create', compact('tablettes'));
     }
 
@@ -176,65 +177,86 @@ class PositionController extends Controller
     /**
      * Bulk create positions for a tablette.
      */
-    public function bulkCreate(Request $request)
+     public function bulkCreate(Request $request)
     {
-        $validated = $request->validate([
-            'travee_id' => 'required|exists:travees,id',
-            'positions_per_tablette' => 'required|integer|min:1',
-        ]);
-
-        $traveeId = $validated['travee_id'];
-        $positionsPerTablette = $validated['positions_per_tablette'];
-
         try {
-            // Récupérer les tablettes de la travée sans positions
-            $tablettesSansPositions = Tablette::where('travee_id', $traveeId)
-                                            ->doesntHave('positions')
-                                            ->get();
+            $validated = $request->validate([
+                'tablette_id' => 'required|exists:tablettes,id',
+                'nombre_positions' => 'required|integer|min:1|max:100',
+                'prefix' => 'nullable|string|max:10',
+                'start_number' => 'nullable|integer|min:1'
+            ]);
 
-            foreach ($tablettesSansPositions as $tablette) {
-                for ($i = 1; $i <= $positionsPerTablette; $i++) {
-                    Position::create([
-                        'tablette_id' => $tablette->id,
-                        'nom' => "P{$i}",
-                    ]);
-                }
+            $tablette = Tablette::find($validated['tablette_id']);
+            if (!$tablette) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tablette introuvable.'
+                ], 404);
             }
-            Log::info('Positions générées avec succès pour la travée ID: ' . $traveeId);
-            return response()->json(['success' => true, 'message' => 'Positions générées avec succès.']);
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la génération des positions : ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Erreur lors de la génération des positions.'], 500);
-        }
-    }
 
-    /**
-     * Create positions for a specific tablette.
-     */
-    private function createPositionsForTablette($tablette, $nombrePositions, $prefix, $startNumber)
-    {
-        $created = 0;
-        
-        for ($i = 0; $i < $nombrePositions; $i++) {
-            $numero = $startNumber + $i;
-            $nom = $prefix . str_pad($numero, 3, '0', STR_PAD_LEFT);
-            
-            // Vérifier si la position existe déjà
-            if (!Position::where('tablette_id', $tablette->id)->where('nom', $nom)->exists()) {
+            $nombrePositions = $validated['nombre_positions'];
+            $prefix = $validated['prefix'] ?? 'P';
+            $startNumber = $validated['start_number'] ?? 1;
+
+            DB::beginTransaction();
+
+            $created = 0;
+            $errors = [];
+
+            for ($i = 0; $i < $nombrePositions; $i++) {
+                $numero = $startNumber + $i;
+                $nom = $prefix . str_pad($numero, 3, '0', STR_PAD_LEFT);
+                
+                // Vérifier si la position existe déjà
+                if (Position::where('tablette_id', $tablette->id)->where('nom', $nom)->exists()) {
+                    $errors[] = "Position {$nom} existe déjà";
+                    continue;
+                }
+
                 Position::create([
                     'nom' => $nom,
                     'vide' => true,
                     'tablette_id' => $tablette->id,
                 ]);
+                
                 $created++;
             }
+
+            DB::commit();
+
+            $message = "{$created} position(s) créée(s) avec succès.";
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(', ', $errors);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'created' => $created,
+                'errors' => $errors
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+            
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Bulk create positions error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création: ' . $e->getMessage()
+            ], 500);
         }
-        
-        return $created;
     }
 
     /**
-     * Generate positions for all empty tablettes in a travee.
+     * Generate positions for all empty tablettes in a travee - Correction
      */
     public function generateForTravee(Request $request)
     {
@@ -289,25 +311,29 @@ class PositionController extends Controller
             ], 500);
         }
     }
-public function bulkAction(Request $request)
+
+    /**
+     * Actions groupées sur les positions - Nouvelle méthode
+     */
+    public function bulkAction(Request $request)
     {
         try {
             $validated = $request->validate([
                 'action' => 'required|string|in:delete,export,move,toggle_status',
-                'position_ids' => 'required|array|min:1',
-                'position_ids.*' => 'integer|exists:positions,id',
+                'position_ids' => 'required|string', // Reçu comme string JSON
                 'new_tablette_id' => 'nullable|integer|exists:tablettes,id'
-            ], [
-                'action.required' => 'L\'action est obligatoire.',
-                'action.in' => 'Action non valide.',
-                'position_ids.required' => 'Au moins une position doit être sélectionnée.',
-                'position_ids.array' => 'Format de données invalide pour les positions.',
-                'position_ids.min' => 'Au moins une position doit être sélectionnée.',
-                'position_ids.*.exists' => 'Une ou plusieurs positions sélectionnées n\'existent pas.',
-                'new_tablette_id.exists' => 'La tablette sélectionnée n\'existe pas.'
             ]);
 
-            $positionIds = $validated['position_ids'];
+            // Décoder les IDs
+            $positionIds = json_decode($validated['position_ids'], true);
+            
+            if (!is_array($positionIds) || empty($positionIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucune position sélectionnée.'
+                ], 400);
+            }
+
             $action = $validated['action'];
 
             // Exécuter l'action
@@ -540,5 +566,30 @@ public function bulkAction(Request $request)
                 'message' => 'Erreur lors de la modification: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Create positions for a specific tablette.
+     */
+    private function createPositionsForTablette($tablette, $nombrePositions, $prefix, $startNumber)
+    {
+        $created = 0;
+        
+        for ($i = 0; $i < $nombrePositions; $i++) {
+            $numero = $startNumber + $i;
+            $nom = $prefix . str_pad($numero, 3, '0', STR_PAD_LEFT);
+            
+            // Vérifier si la position existe déjà
+            if (!Position::where('tablette_id', $tablette->id)->where('nom', $nom)->exists()) {
+                Position::create([
+                    'nom' => $nom,
+                    'vide' => true,
+                    'tablette_id' => $tablette->id,
+                ]);
+                $created++;
+            }
+        }
+        
+        return $created;
     }
 }

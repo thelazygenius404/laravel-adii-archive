@@ -1,4 +1,4 @@
-{{-- resources/views/admin/tablettes/index.blade.php --}}
+{{-- resources/views/admin/tablettes/index.blade.php - VERSION CORRIGÉE --}}
 @extends('layouts.admin')
 
 @section('title', 'Gestion des Tablettes')
@@ -24,6 +24,7 @@
                     <li><a class="dropdown-item" href="#" onclick="exportData()">
                         <i class="fas fa-download me-2"></i>Exporter la liste
                     </a></li>
+                    <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="#" onclick="showBulkActions()">
                         <i class="fas fa-tasks me-2"></i>Actions groupées
                     </a></li>
@@ -162,7 +163,7 @@
                                                 </div>
                                                 <div>
                                                     <h6 class="mb-0">{{ $tablette->nom }}</h6>
-                                                    <small class="text-muted">{{ $tablette->travee->nom }}</small>
+                                                    <small class="text-muted">ID: {{ $tablette->id }}</small>
                                                 </div>
                                             </div>
                                         </td>
@@ -215,7 +216,7 @@
                                                 </a>
                                                 @if($tablette->positions_count == 0)
                                                     <button class="btn btn-outline-danger" 
-                                                            onclick="deleteMere({{ $tablette->id }})" title="Supprimer">
+                                                            onclick="deleteTablette({{ $tablette->id }})" title="Supprimer">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 @else
@@ -234,8 +235,7 @@
                     <!-- Pagination -->
                     @if($tablettes->hasPages())
                         <div class="d-flex justify-content-center mt-4">
-                            
-                             {{ $tablettes->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
+                            {{ $tablettes->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
                         </div>
                     @endif
                 @else
@@ -257,16 +257,33 @@
 
 @push('scripts')
 <script>
-    // Sélection multiple
+    // Variables globales pour le debug
+    let selectedTablettes = [];
+
+    // CORRECTION 1: Fonction de mise à jour de la sélection
+    function updateSelectedTablettes() {
+        selectedTablettes = Array.from(document.querySelectorAll('.tablette-checkbox:checked')).map(cb => cb.value);
+        console.log('Tablettes sélectionnées:', selectedTablettes);
+    }
+
+    // CORRECTION 2: Sélection multiple avec mise à jour
     document.getElementById('selectAll').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.tablette-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        updateSelectedTablettes();
+    });
+
+    // CORRECTION 3: Écouteur sur les checkboxes individuelles
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('tablette-checkbox')) {
+            updateSelectedTablettes();
+        }
     });
 
     // Supprimer une tablette
-    function deleteMere(id) {
+    function deleteTablette(id) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette tablette ?')) {
             const form = document.createElement('form');
             form.method = 'POST';
@@ -283,20 +300,216 @@
     // Exporter les données
     function exportData() {
         const params = new URLSearchParams(window.location.search);
-        window.location.href = `{{ route('admin.tablettes.index') }}/export?${params.toString()}`;
+        window.location.href = `{{ route('admin.tablettes.export') }}?${params.toString()}`;
     }
 
-    // Actions groupées
+    // CORRECTION 4: Actions groupées complètement refaites
     function showBulkActions() {
-        const selected = Array.from(document.querySelectorAll('.tablette-checkbox:checked')).map(cb => cb.value);
+        updateSelectedTablettes(); // S'assurer que la sélection est à jour
         
-        if (selected.length === 0) {
+        if (selectedTablettes.length === 0) {
             alert('Veuillez sélectionner au moins une tablette.');
             return;
         }
         
-        // Implémenter les actions groupées
-        console.log('Actions groupées pour:', selected);
+        // Supprimer l'ancien modal s'il existe
+        const existingModal = document.getElementById('bulkActionsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // CORRECTION 5: Modal correct avec gestionnaires d'événements
+        const modalHtml = `
+            <div class="modal fade" id="bulkActionsModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Actions Groupées sur les Tablettes</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>${selectedTablettes.length}</strong> tablette(s) sélectionnée(s)
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Action à effectuer :</label>
+                                <select class="form-select" id="bulkActionSelect">
+                                    <option value="">Choisir une action...</option>
+                                    <option value="export">📤 Exporter la sélection</option>
+                                    <option value="delete">🗑️ Supprimer (tablettes vides uniquement)</option>
+                                    <option value="move">📦 Déplacer vers une autre travée</option>
+                                    <option value="optimize">⚡ Optimiser l'organisation</option>
+                                </select>
+                            </div>
+                            <div id="moveOptions" style="display: none;">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <label class="form-label">Nouvelle travée :</label>
+                                        <select class="form-select" id="newTraveeId">
+                                            <option value="">Sélectionner une travée</option>
+                                            @foreach($travees as $travee)
+                                                <option value="{{ $travee->id }}">{{ $travee->nom }} ({{ $travee->salle->nom }})</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="alert alert-warning mt-2 mb-0">
+                                            <small>⚠️ Cette action déplacera les tablettes vers la nouvelle travée.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="executeBulkBtn" disabled>
+                                <i class="fas fa-cog me-2"></i>Exécuter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // CORRECTION 6: Attacher les événements APRÈS la création du modal
+        const modal = new bootstrap.Modal(document.getElementById('bulkActionsModal'));
+        
+        // Gérer l'affichage des options de déplacement
+        document.getElementById('bulkActionSelect').addEventListener('change', function() {
+            const moveOptions = document.getElementById('moveOptions');
+            const executeBtn = document.getElementById('executeBulkBtn');
+            
+            moveOptions.style.display = this.value === 'move' ? 'block' : 'none';
+            executeBtn.disabled = !this.value;
+        });
+        
+        // CORRECTION 7: Attacher l'événement au bouton Exécuter
+        document.getElementById('executeBulkBtn').addEventListener('click', function() {
+            executeTablettesBulkAction();
+        });
+        
+        modal.show();
+    }
+
+    // CORRECTION 8: Fonction d'exécution corrigée
+    function executeTablettesBulkAction() {
+        const action = document.getElementById('bulkActionSelect').value;
+        const newTraveeId = document.getElementById('newTraveeId') ? document.getElementById('newTraveeId').value : null;
+        
+        if (!action) {
+            alert('Veuillez sélectionner une action.');
+            return;
+        }
+        
+        if (action === 'move' && !newTraveeId) {
+            alert('Veuillez sélectionner une travée de destination.');
+            return;
+        }
+        
+        // Désactiver le bouton pendant traitement
+        const executeBtn = document.getElementById('executeBulkBtn');
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
+        
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('tablette_ids', JSON.stringify(selectedTablettes));
+        if (newTraveeId) {
+            formData.append('new_travee_id', newTraveeId);
+        }
+        
+        // DEBUG DÉTAILLÉ
+        console.log('=== DEBUG REQUÊTE TABLETTES ===');
+        console.log('Action:', action);
+        console.log('Tablettes sélectionnées:', selectedTablettes);
+        console.log('Nouvelle travée ID:', newTraveeId);
+        console.log('FormData entries:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+        
+        fetch('{{ route("admin.tablettes.bulk-action") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => {
+            console.log('=== RÉPONSE SERVEUR TABLETTES ===');
+            console.log('Status:', response.status);
+            console.log('Headers:', response.headers);
+            
+            // IMPORTANT : Lire la réponse même en cas d'erreur 422
+            return response.text().then(text => {
+                console.log('Réponse brute:', text);
+                
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Données JSON:', data);
+                    
+                    if (response.ok) {
+                        if (data.success) {
+                            alert(data.message);
+                            
+                            // Afficher les résultats détaillés si disponibles (pour optimize)
+                            if (data.results && Array.isArray(data.results)) {
+                                let detailsHtml = '<div class="mt-3"><h6>Détails de l\'optimisation:</h6><ul>';
+                                data.results.forEach(result => {
+                                    detailsHtml += `<li><strong>${result.tablette}</strong>: ${result.positions_total} positions, ${result.utilisation}% d'utilisation (${result.efficacite})</li>`;
+                                });
+                                detailsHtml += '</ul></div>';
+                                document.querySelector('#bulkActionsModal .modal-body').insertAdjacentHTML('beforeend', detailsHtml);
+                                
+                                // Ne pas recharger automatiquement pour permettre de voir les résultats
+                                setTimeout(() => {
+                                    if (confirm('Voulez-vous recharger la page pour voir les modifications ?')) {
+                                        window.location.reload();
+                                    }
+                                }, 2000);
+                            } else if (action !== 'export') {
+                                window.location.reload();
+                            }
+                        } else {
+                            alert('Erreur: ' + data.message);
+                        }
+                    } else {
+                        // ERREUR 422 - Afficher les détails de validation
+                        if (data.errors) {
+                            console.log('Erreurs de validation:', data.errors);
+                            let errorMessage = 'Erreurs de validation:\n';
+                            for (const [field, messages] of Object.entries(data.errors)) {
+                                errorMessage += `- ${field}: ${messages.join(', ')}\n`;
+                            }
+                            alert(errorMessage);
+                        } else {
+                            alert('Erreur de validation: ' + (data.message || 'Erreur inconnue'));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erreur parsing JSON:', e);
+                    alert('Réponse invalide du serveur: ' + text);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('=== ERREUR RÉSEAU TABLETTES ===');
+            console.error('Erreur:', error);
+            alert('Erreur réseau: ' + error.message);
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Exécuter';
+            
+            // Fermer le modal si pas d'erreur ou si export
+            const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
+            if (modal && action === 'export') {
+                modal.hide();
+            }
+        });
     }
 
     // Recherche en temps réel
@@ -309,6 +522,10 @@
             }
         }, 500);
     });
+
+    // CORRECTION 9: Debug des routes
+    console.log('Route bulk-action:', '{{ route("admin.tablettes.bulk-action") }}');
+    console.log('CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.content);
 </script>
 @endpush
 
@@ -337,6 +554,15 @@
 
     .badge {
         font-size: 0.75em;
+    }
+
+    .alert {
+        border-radius: 8px;
+    }
+
+    .card {
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
 </style>
 @endpush

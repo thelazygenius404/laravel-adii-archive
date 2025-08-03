@@ -132,6 +132,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/tablettes/travee/{travee}', [TabletteController::class, 'byTravee'])->name('tablettes.by-travee');
     Route::get('/tablettes/export', [TabletteController::class, 'export'])->name('tablettes.export');
     Route::post('/travees/bulk-action', [TraveeController::class, 'bulkAction'])->name('travees.bulk-action');
+    Route::post('/tablettes/bulk-action', [TabletteController::class, 'bulkAction'])->name('tablettes.bulk-action');
     
     // Position management
     
@@ -140,6 +141,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/tablette/{tablette}', [PositionController::class, 'byTablette'])->name('by-tablette');
         Route::put('/{position}/toggle', [PositionController::class, 'toggleStatus'])->name('toggle');
          Route::post('/bulk-create', [PositionController::class, 'bulkCreate'])->name('bulk-create');
+        Route::get('/export', [PositionController::class, 'export'])->name('export');
+        Route::get('/statistics', [PositionController::class, 'statistics'])->name('statistics');
+        Route::post('/bulk-action', [PositionController::class, 'bulkAction'])->name('bulk-action');
+         Route::post('/generate-for-travee', [PositionController::class, 'generateForTravee'])->name('generate-for-travee');
     });
     
     // Box and folder management
