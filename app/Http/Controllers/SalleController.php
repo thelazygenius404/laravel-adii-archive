@@ -6,6 +6,7 @@ use App\Models\Salle;
 use App\Models\Organisme;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class SalleController extends Controller
 {
@@ -270,5 +271,228 @@ class SalleController extends Controller
         ];
 
         return response()->json($stats);
+    }
+
+    /**
+     * Handle bulk actions for salles.
+     */
+    public function bulkAction(Request $request)
+    {
+        try {
+            // Log pour déboguer
+            Log::info('Bulk action data received:', $request->all());
+            
+            // CORRECTION : Validation adaptée aux données reçues
+            $validated = $request->validate([
+                'action' => 'required|string|in:delete,update_organisme,optimize,export',
+                'salle_ids' => 'required|array|min:1',
+                'salle_ids.*' => 'integer|exists:salles,id',
+                'organisme_id' => 'nullable|integer|exists:organismes,id',
+                'confirm' => 'nullable|string'
+            ], [
+                'action.required' => 'L\'action est obligatoire.',
+                'action.in' => 'Action non valide.',
+                'salle_ids.required' => 'Au moins une salle doit être sélectionnée.',
+                'salle_ids.array' => 'Format de données invalide pour les salles.',
+                'salle_ids.min' => 'Au moins une salle doit être sélectionnée.',
+                'salle_ids.*.exists' => 'Une ou plusieurs salles sélectionnées n\'existent pas.',
+                'organisme_id.exists' => 'L\'organisme sélectionné n\'existe pas.'
+            ]);
+
+            $salleIds = $validated['salle_ids'];
+            $action = $validated['action'];
+
+            // Validations spécifiques selon l'action
+            if ($action === 'update_organisme' && !$request->organisme_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'L\'organisme est requis pour cette action.'
+                ], 422);
+            }
+
+            if ($action === 'delete' && !$request->confirm) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La confirmation est requise pour la suppression.'
+                ], 422);
+            }
+
+            // Exécuter l'action
+            switch ($action) {
+                case 'export':
+                    return $this->bulkExport($salleIds);
+                
+                case 'delete':
+                    return $this->bulkDelete($salleIds);
+                
+                case 'update_organisme':
+                    return $this->bulkUpdateOrganisme($salleIds, $validated['organisme_id']);
+                
+                case 'optimize':
+                    return $this->bulkOptimize($salleIds);
+                
+                default:
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Action non reconnue.'
+                    ], 400);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation error in bulk action:', $e->errors());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+            
+        } catch (\Exception $e) {
+            Log::error('Bulk action error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur interne du serveur: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Bulk delete salles.
+     */
+    private function bulkDelete($salleIds)
+    {
+        try {
+            $salles = Salle::whereIn('id', $salleIds)->get();
+            $errors = [];
+            $deleted = 0;
+
+            foreach ($salles as $salle) {
+                // Vérifier s'il y a des travées
+                if ($salle->travees()->count() > 0) {
+                    $errors[] = "La salle '{$salle->nom}' contient des travées et ne peut pas être supprimée.";
+                    continue;
+                }
+
+                $salle->delete();
+                $deleted++;
+            }
+
+            $message = $deleted > 0 ? "{$deleted} salle(s) supprimée(s) avec succès." : 'Aucune salle supprimée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $deleted > 0,
+                'message' => $message,
+                'deleted' => $deleted,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk delete error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    private function bulkUpdateOrganisme($salleIds, $newOrganismeId)
+    {
+        try {
+            $updated = Salle::whereIn('id', $salleIds)
+                        ->update(['organisme_id' => $newOrganismeId]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$updated} salle(s) mise(s) à jour avec succès.",
+                'updated' => $updated
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk update organisme error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function bulkExport($salleIds)
+    {
+        $salles = Salle::with('organisme')
+                    ->withCount('travees')
+                    ->whereIn('id', $salleIds)
+                    ->orderBy('nom')
+                    ->get();
+
+        $filename = 'salles_selection_' . date('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function() use ($salles) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            fputcsv($file, [
+                'ID',
+                'Nom',
+                'Organisme',
+                'Capacité Maximale',
+                'Capacité Actuelle',
+                'Utilisation (%)',
+                'Nombre de Travées',
+                'Date de Création'
+            ], ';');
+            
+            foreach ($salles as $salle) {
+                fputcsv($file, [
+                    $salle->id,
+                    $salle->nom,
+                    $salle->organisme->nom_org,
+                    $salle->capacite_max,
+                    $salle->capacite_actuelle,
+                    $salle->utilisation_percentage,
+                    $salle->travees_count,
+                    $salle->created_at->format('d/m/Y H:i:s')
+                ], ';');
+            }
+            
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+        ]);
+    }
+
+    /**
+     * Bulk optimize salles.
+     */
+    private function bulkOptimize($salleIds)
+    {
+        try {
+            $optimized = 0;
+            
+            foreach ($salleIds as $salleId) {
+                $salle = Salle::find($salleId);
+                if ($salle) {
+                    // Recalculer la capacité actuelle
+                    $salle->updateCapaciteActuelle();
+                    $optimized++;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$optimized} salle(s) optimisée(s) avec succès.",
+                'optimized' => $optimized
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk optimize error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'optimisation: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

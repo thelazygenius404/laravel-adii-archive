@@ -110,6 +110,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/export', [StockageController::class, 'exportReport'])->name('export');
         Route::get('/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('statistics');
         Route::get('/positions/available', [StockageController::class, 'findAvailablePositions'])->name('positions.available');
+        Route::post('/positions/bulk-create', [StockageController::class, 'bulkCreatePositions'])->name('positions.bulk-create');
     });
     
     // Physical storage entities
@@ -119,6 +120,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/organisme/{organisme}', [SalleController::class, 'byOrganisme'])->name('by-organisme');
         Route::get('/export', [SalleController::class, 'export'])->name('export');
         Route::get('/statistics', [SalleController::class, 'statistics'])->name('statistics');
+        Route::post('/bulk-action', [SalleController::class, 'bulkAction'])->name('bulk-action');
     });
     
     // Travee management
@@ -129,6 +131,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::resource('tablettes', TabletteController::class);
     Route::get('/tablettes/travee/{travee}', [TabletteController::class, 'byTravee'])->name('tablettes.by-travee');
     Route::get('/tablettes/export', [TabletteController::class, 'export'])->name('tablettes.export');
+    Route::post('/travees/bulk-action', [TraveeController::class, 'bulkAction'])->name('travees.bulk-action');
     
     // Position management
     

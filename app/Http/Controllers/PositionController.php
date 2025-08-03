@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Position;
 use App\Models\Tablette;
 use Illuminate\Http\Request;
+use App\Models\Travee;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PositionController extends Controller
 {
@@ -173,40 +176,117 @@ class PositionController extends Controller
     /**
      * Bulk create positions for a tablette.
      */
-    public function bulkCreate(Request $request)
-    {
-        $validated = $request->validate([
-            'tablette_id' => 'required|exists:tablettes,id',
-            'nombre_positions' => 'required|integer|min:1|max:100',
-            'prefix' => 'required|string|max:50',
-        ], [
-            'tablette_id.required' => 'La tablette est obligatoire.',
-            'nombre_positions.required' => 'Le nombre de positions est obligatoire.',
-            'nombre_positions.max' => 'Vous ne pouvez pas créer plus de 100 positions à la fois.',
-            'prefix.required' => 'Le préfixe est obligatoire.',
-        ]);
+  public function bulkCreate(Request $request)
+{
+    $validated = $request->validate([
+        'travee_id' => 'required|exists:travees,id',
+        'positions_per_tablette' => 'required|integer|min:1',
+    ]);
 
-        $tablette = Tablette::find($validated['tablette_id']);
-        $created = 0;
+    $traveeId = $validated['travee_id'];
+    $positionsPerTablette = $validated['positions_per_tablette'];
 
-        for ($i = 1; $i <= $validated['nombre_positions']; $i++) {
-            $nom = $validated['prefix'] . '-' . str_pad($i, 2, '0', STR_PAD_LEFT);
-            
-            // Check if position name already exists for this tablette
-            if (!Position::where('tablette_id', $tablette->id)->where('nom', $nom)->exists()) {
+    try {
+        // Récupérer les tablettes de la travée sans positions
+        $tablettesSansPositions = Tablette::where('travee_id', $traveeId)
+                                          ->doesntHave('positions')
+                                          ->get();
+
+        foreach ($tablettesSansPositions as $tablette) {
+            for ($i = 1; $i <= $positionsPerTablette; $i++) {
                 Position::create([
-                    'nom' => $nom,
-                    'vide' => true,
                     'tablette_id' => $tablette->id,
+                    'nom' => "P{$i}",
                 ]);
-                $created++;
             }
         }
+        Log::info('Positions générées avec succès pour la travée ID: ' . $traveeId);
+        return response()->json(['success' => true, 'message' => 'Positions générées avec succès.']);
+    } catch (\Exception $e) {
+        Log::error('Erreur lors de la génération des positions : ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Erreur lors de la génération des positions.'], 500);
+    }
+}
+
+/**
+ * Create positions for a specific tablette.
+ */
+private function createPositionsForTablette($tablette, $nombrePositions, $prefix, $startNumber)
+{
+    $created = 0;
+    
+    for ($i = 0; $i < $nombrePositions; $i++) {
+        $numero = $startNumber + $i;
+        $nom = $prefix . str_pad($numero, 3, '0', STR_PAD_LEFT);
+        
+        // Vérifier si la position existe déjà
+        if (!Position::where('tablette_id', $tablette->id)->where('nom', $nom)->exists()) {
+            Position::create([
+                'nom' => $nom,
+                'vide' => true,
+                'tablette_id' => $tablette->id,
+            ]);
+            $created++;
+        }
+    }
+    
+    return $created;
+}
+
+/**
+ * Generate positions for all empty tablettes in a travee.
+ */
+public function generateForTravee(Request $request)
+{
+    $validated = $request->validate([
+        'travee_id' => 'required|exists:travees,id',
+        'positions_per_tablette' => 'required|integer|min:1|max:50',
+        'prefix' => 'nullable|string|max:10'
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        $travee = Travee::find($validated['travee_id']);
+        $prefix = $validated['prefix'] ?? 'P';
+        $positionsPerTablette = $validated['positions_per_tablette'];
+        
+        $tablettes = $travee->tablettes()
+                           ->whereDoesntHave('positions')
+                           ->get();
+        
+        $totalCreated = 0;
+        
+        foreach ($tablettes as $tablette) {
+            $created = $this->createPositionsForTablette(
+                $tablette, 
+                $positionsPerTablette, 
+                $prefix, 
+                1
+            );
+            $totalCreated += $created;
+        }
+
+        DB::commit();
 
         return response()->json([
             'success' => true,
-            'message' => "{$created} position(s) créée(s) avec succès.",
-            'created' => $created
+            'message' => "{$totalCreated} position(s) générée(s) pour {$tablettes->count()} tablette(s).",
+            'created' => $totalCreated,
+            'tablettes_processed' => $tablettes->count()
         ]);
+
+    } catch (\Exception $e) {
+        DB::rollback();
+        Log::error('Error generating positions for travee', [
+            'travee_id' => $validated['travee_id'],
+            'error' => $e->getMessage()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la génération: ' . $e->getMessage()
+        ], 500);
     }
+}
 }

@@ -170,7 +170,8 @@
                     <!-- Pagination -->
                     @if($travees->hasPages())
                         <div class="d-flex justify-content-center mt-4">
-                            {{ $travees->appends(request()->query())->links() }}
+                            
+                            {{ $travees->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
                         </div>
                     @endif
                 @else
@@ -203,25 +204,34 @@
     // Supprimer une travée
     function deleteTravee(id) {
         if (confirm('Êtes-vous sûr de vouloir supprimer cette travée ? Cette action supprimera également toutes les tablettes et positions associées.')) {
-            fetch(`{{ route('admin.travees.index') }}/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Erreur lors de la suppression: ' + (data.message || 'Erreur inconnue'));
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors de la suppression');
-            });
+             const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{{ route('admin.travees.index') }}/${id}`;
+        form.innerHTML = `
+            @csrf
+            @method('DELETE')
+        `;
+        document.body.appendChild(form);
+        form.submit();
+            // fetch(`{{ route('admin.travees.index') }}/${id}`, {
+            //     method: 'DELETE',
+            //     headers: {
+            //         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            //         'Content-Type': 'application/json',
+            //     },
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+            //     if (data.success) {
+            //         location.reload();
+            //     } else {
+            //         alert('Erreur lors de la suppression: ' + (data.message || 'Erreur inconnue'));
+            //     }
+            // })
+            // .catch(error => {
+            //     console.error('Erreur:', error);
+            //     alert('Erreur lors de la suppression');
+            // });
         }
     }
 

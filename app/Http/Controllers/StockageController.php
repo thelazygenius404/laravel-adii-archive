@@ -55,14 +55,18 @@ class StockageController extends Controller
     /**
      * Show storage hierarchy for a specific organisme.
      */
+ 
     public function hierarchy(Request $request, $organismeId = null)
     {
         $organisme = null;
-        if ($organismeId) {
-            $organisme = Organisme::findOrFail($organismeId);
+        if ($request->filled('organisme_id')) {
+            $organisme = Organisme::findOrFail($request->organisme_id);
         }
 
-        $query = Salle::with(['travees.tablettes.positions.boite', 'organisme']);
+        $query = Salle::with([
+            'travees.tablettes.positions.boite', 
+            'organisme'
+        ]);
         
         if ($organisme) {
             $query->where('organisme_id', $organisme->id);
@@ -77,7 +81,7 @@ class StockageController extends Controller
     /**
      * Find available positions for new boites.
      */
-    public function findAvailablePositions(Request $request)
+     public function findAvailablePositions(Request $request)
     {
         $organismeId = $request->get('organisme_id');
         $limit = $request->get('limit', 20);
@@ -132,6 +136,7 @@ class StockageController extends Controller
 
         return response()->json($stats);
     }
+
 
     /**
      * Optimize storage by suggesting reorganization.
@@ -360,7 +365,7 @@ class StockageController extends Controller
     /**
      * Export utilization report.
      */
-    private function exportUtilizationReport($organismeId)
+      private function exportUtilizationReport($organismeId)
     {
         $query = Salle::with(['organisme', 'travees.tablettes.positions']);
         

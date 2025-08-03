@@ -303,6 +303,14 @@
 
 @push('styles')
 <style>
+    .modal {
+        z-index: 1060 !important;
+    }
+    
+    /* Pour le modal de fond */
+    .modal-backdrop {
+        z-index: 1050 !important;
+    }
     .hierarchy-item {
         margin-left: 20px;
         border-left: 2px solid #dee2e6;
@@ -440,102 +448,119 @@
 
     // Filtrer par organisme
     function filterByOrganisme() {
-        const organismeId = document.getElementById('organismeFilter').value;
-        if (organismeId) {
-            window.location.href = `{{ route('admin.stockage.hierarchy') }}?organisme=${organismeId}`;
-        } else {
-            window.location.href = `{{ route('admin.stockage.hierarchy') }}`;
-        }
+    const organismeId = document.getElementById('organismeFilter').value;
+    const currentUrl = new URL(window.location);
+    
+    // Nettoyer les anciens paramètres d'organisme
+    currentUrl.searchParams.delete('organisme_id');
+    currentUrl.searchParams.delete('organisme');
+    
+    if (organismeId) {
+        currentUrl.searchParams.set('organisme_id', organismeId);
     }
-
+    
+    window.location.href = currentUrl.toString();
+}
     // Filtrer par statut
-    function filterByStatus() {
+      function filterByStatus() {
         const status = document.getElementById('statusFilter').value;
         const positions = document.querySelectorAll('.position-item');
         
+        let hasVisibleItems = false;
+
         positions.forEach(position => {
             const positionStatus = position.getAttribute('data-status');
-            const parent = position.closest('.hierarchy-item[data-type="salle"]');
+            position.style.display = 'none';
             
             if (status === '') {
                 position.style.display = 'block';
-                if (parent) parent.style.display = 'block';
+                hasVisibleItems = true;
             } else if (status === 'available' && positionStatus === 'free') {
                 position.style.display = 'block';
-                if (parent) parent.style.display = 'block';
+                hasVisibleItems = true;
             } else if (status === 'occupied' && positionStatus === 'occupied') {
                 position.style.display = 'block';
-                if (parent) parent.style.display = 'block';
-            } else {
-                position.style.display = 'none';
+                hasVisibleItems = true;
+            } else if (status === 'full' && positionStatus === 'occupied') {
+                const boiteInfo = position.querySelector('.text-muted');
+                if (boiteInfo && boiteInfo.textContent.includes('100%')) {
+                    position.style.display = 'block';
+                    hasVisibleItems = true;
+                }
+            } else if (status === 'low' && positionStatus === 'occupied') {
+                const boiteInfo = position.querySelector('.text-muted');
+                if (boiteInfo && boiteInfo.textContent.includes('/') && !boiteInfo.textContent.includes('100%')) {
+                    position.style.display = 'block';
+                    hasVisibleItems = true;
+                }
             }
         });
 
-        // Masquer les salles sans positions visibles
-        const salles = document.querySelectorAll('.salle-item');
-        salles.forEach(salle => {
-            const visiblePositions = salle.querySelectorAll('.position-item[style="display: block"], .position-item:not([style*="display: none"])');
-            if (status !== '' && visiblePositions.length === 0) {
-                salle.style.display = 'none';
-            } else {
-                salle.style.display = 'block';
+        // Gérer l'affichage des parents
+        const allItems = document.querySelectorAll('.hierarchy-item');
+        allItems.forEach(item => {
+            if (item.dataset.type !== 'position') {
+                item.style.display = 'block';
+                const children = item.querySelectorAll('.hierarchy-item');
+                let hasVisibleChildren = false;
+                
+                children.forEach(child => {
+                    if (child.style.display !== 'none') {
+                        hasVisibleChildren = true;
+                    }
+                });
+                
+                if (!hasVisibleChildren && status !== '') {
+                    item.style.display = 'none';
+                }
             }
         });
 
+        // Afficher un message si aucun résultat
+        document.getElementById('noResultsMessage').style.display = hasVisibleItems ? 'none' : 'block';
         updateStats();
     }
 
-    // Recherche dans la hiérarchie
+    // Fonction améliorée pour la recherche
     function searchInHierarchy() {
         const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const items = document.querySelectorAll('.hierarchy-item');
-        
-        // Supprimer les anciens highlights
-        items.forEach(item => {
-            item.classList.remove('search-highlight');
-            item.style.display = 'block';
-        });
-        
-        if (searchTerm === '') {
-            updateStats();
-            return;
-        }
-        
+        const items = document.querySelectorAll('.hierarchy-header');
         let hasResults = false;
         
-        items.forEach(item => {
-            const header = item.querySelector('.hierarchy-header');
+        items.forEach(header => {
+            const item = header.closest('.hierarchy-item');
             const text = header.textContent.toLowerCase();
+            const match = text.includes(searchTerm);
             
-            if (text.includes(searchTerm)) {
-                item.classList.add('search-highlight');
-                
-                // Afficher les parents
+            item.classList.toggle('search-highlight', match);
+            item.style.display = match ? 'block' : 'none';
+            
+            if (match) {
+                hasResults = true;
+                // Développer les parents
                 let parent = item.parentElement.closest('.hierarchy-item');
                 while (parent) {
-                    parent.style.display = 'block';
                     parent.classList.remove('collapsed');
+                    parent.style.display = 'block';
                     parent = parent.parentElement.closest('.hierarchy-item');
                 }
-                
-                hasResults = true;
-            } else {
-                item.style.display = 'none';
             }
         });
-        
-        if (!hasResults) {
-            items.forEach(item => item.style.display = 'block');
-        }
-        
+
+        document.getElementById('noResultsMessage').style.display = hasResults ? 'none' : 'block';
         updateStats();
     }
 
     // Assigner une boîte
-    function assignBox(positionId) {
+     function assignBox(positionId) {
+        // Fermer le modal des positions libres s'il est ouvert
+        const availableModal = bootstrap.Modal.getInstance(document.getElementById('availablePositionsModal'));
+        if (availableModal) {
+            availableModal.hide();
+        }
+
+        // Ouvrir le modal d'assignation
         document.getElementById('positionId').value = positionId;
-        
-        // Générer un numéro de boîte automatique
         const nextBoxNumber = generateNextBoxNumber();
         document.getElementById('boxNumber').value = nextBoxNumber;
         

@@ -429,7 +429,7 @@
     }
 
     // Sélection multiple
-    document.getElementById('selectAll').addEventListener('change', function() {
+   document.getElementById('selectAll').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.salle-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
@@ -445,97 +445,221 @@
             return;
         }
         
-        document.getElementById('selectedSalles').value = JSON.stringify(selected);
+        // CORRECTION : Stocker directement le tableau au lieu de JSON.stringify
+        document.getElementById('selectedSalles').value = selected.join(',');
         const modal = new bootstrap.Modal(document.getElementById('bulkActionModal'));
         modal.show();
     }
 
     // Changer les champs additionnels selon l'action
-    document.getElementById('bulkAction').addEventListener('change', function() {
-        const additionalFields = document.getElementById('additionalFields');
-        additionalFields.innerHTML = '';
-        
-        switch(this.value) {
-            case 'update_organisme':
-                additionalFields.innerHTML = `
-                    <div class="mb-3">
-                        <label for="newOrganisme" class="form-label">Nouvel organisme</label>
-                        <select class="form-select" id="newOrganisme" name="organisme_id" required>
-                            <option value="">Choisir un organisme...</option>
-                            @foreach($organismes as $org)
-                                <option value="{{ $org->id }}">{{ $org->nom_org }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                `;
-                break;
-            case 'delete':
-                additionalFields.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Attention !</strong> Cette action est irréversible et supprimera également toutes les structures de stockage associées.
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="confirmDelete" name="confirm" required>
-                        <label class="form-check-label" for="confirmDelete">
-                            Je comprends que cette action est irréversible
-                        </label>
-                    </div>
-                `;
-                break;
+    document.addEventListener('DOMContentLoaded', function() {
+        const bulkActionSelect = document.getElementById('bulkAction');
+        if (bulkActionSelect) {
+            bulkActionSelect.addEventListener('change', function() {
+                const additionalFields = document.getElementById('additionalFields');
+                additionalFields.innerHTML = '';
+                
+                switch(this.value) {
+                    case 'update_organisme':
+                        additionalFields.innerHTML = `
+                            <div class="mb-3">
+                                <label for="newOrganisme" class="form-label">Nouvel organisme <span class="text-danger">*</span></label>
+                                <select class="form-select" id="newOrganisme" name="organisme_id" required>
+                                    <option value="">Choisir un organisme...</option>
+                                    @foreach($organismes as $org)
+                                        <option value="{{ $org->id }}">{{ $org->nom_org }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        `;
+                        break;
+                    case 'delete':
+                        additionalFields.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Attention !</strong> Cette action est irréversible et supprimera également toutes les structures de stockage associées.
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmDelete" name="confirm" value="1" required>
+                                <label class="form-check-label" for="confirmDelete">
+                                    Je comprends que cette action est irréversible
+                                </label>
+                            </div>
+                        `;
+                        break;
+                }
+            });
         }
     });
 
-    // Soumettre l'action groupée
+    // Soumettre l'action groupée - VERSION CORRIGÉE POUR ERREUR 422
     function submitBulkAction() {
         const form = document.getElementById('bulkActionForm');
         const formData = new FormData(form);
         
-        fetch('{{ route("admin.salles.index") }}/bulk-action', {
+        // Validation côté client
+        const action = formData.get('action');
+        if (!action) {
+            alert('Veuillez sélectionner une action.');
+            return;
+        }
+        
+        const salles = formData.get('salles');
+        if (!salles) {
+            alert('Aucune salle sélectionnée.');
+            return;
+        }
+        
+        // Validation spécifique pour certaines actions
+        if (action === 'update_organisme') {
+            const organismeId = formData.get('organisme_id');
+            if (!organismeId) {
+                alert('Veuillez sélectionner un organisme.');
+                return;
+            }
+        }
+        
+        if (action === 'delete') {
+            const confirm = formData.get('confirm');
+            if (!confirm) {
+                alert('Veuillez confirmer la suppression.');
+                return;
+            }
+        }
+        
+        // Désactiver le bouton pendant le traitement
+        const submitBtn = document.querySelector('#bulkActionModal .btn-primary');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
+        
+        // CORRECTION : Préparer les données correctement
+        const requestData = {
+            action: action,
+            salle_ids: salles.split(','), // Convertir en tableau
+        };
+        
+        // Ajouter les champs spécifiques selon l'action
+        if (action === 'update_organisme') {
+            requestData.organisme_id = formData.get('organisme_id');
+        }
+        
+        if (action === 'delete') {
+            requestData.confirm = formData.get('confirm');
+        }
+        
+        console.log('Données envoyées:', requestData);
+        
+        fetch('{{ route("admin.salles.bulk-action") }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
-            body: formData
+            body: JSON.stringify(requestData)
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Status:', response.status);
+            
+            if (!response.ok) {
+                // Gérer les erreurs spécifiques
+                return response.json().then(errorData => {
+                    console.log('Erreur de validation:', errorData);
+                    throw new Error(errorData.message || `Erreur HTTP: ${response.status}`);
+                });
+            }
+            
+            // Si c'est un export, gérer le téléchargement
+            if (action === 'export') {
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'salles_export.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    return { success: true, message: 'Export terminé avec succès.' };
+                });
+            }
+            
+            return response.json();
+        })
         .then(data => {
+            console.log('Réponse:', data);
+            
             if (data.success) {
-                location.reload();
+                // Fermer le modal
+                bootstrap.Modal.getInstance(document.getElementById('bulkActionModal')).hide();
+                
+                // Afficher le message de succès
+                if (data.message) {
+                    alert(data.message);
+                }
+                
+                // Recharger la page sauf pour l'export
+                if (action !== 'export') {
+                    location.reload();
+                }
             } else {
-                alert('Erreur lors de l\'exécution de l\'action: ' + (data.message || 'Erreur inconnue'));
+                alert('Erreur: ' + (data.message || 'Erreur inconnue'));
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
-            alert('Erreur lors de l\'exécution de l\'action');
+            console.error('Erreur complète:', error);
+            alert('Erreur lors de l\'exécution de l\'action: ' + error.message);
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
         });
     }
 
     // Supprimer une salle
-    function deleteSalle(id) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette salle ? Cette action supprimera également toutes les structures de stockage associées.')) {
-            fetch(`{{ route('admin.salles.index') }}/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Content-Type': 'application/json',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Erreur lors de la suppression: ' + (data.message || 'Erreur inconnue'));
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                alert('Erreur lors de la suppression');
-            });
-        }
+   function deleteSalle(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette salle ? Cette action supprimera également toutes les structures de stockage associées.')) {
+        // Créer un formulaire pour la suppression
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{{ route('admin.salles.index') }}/${id}`;
+        form.innerHTML = `
+            @csrf
+            @method('DELETE')
+        `;
+        document.body.appendChild(form);
+        form.submit();
+        
+        // Alternative avec AJAX (optionnelle)
+        /*
+        fetch(`{{ route('admin.salles.index') }}/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Afficher un message de succès
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la suppression');
+        });
+        */
     }
+}
 
     // Recherche en temps réel
     let searchTimeout;

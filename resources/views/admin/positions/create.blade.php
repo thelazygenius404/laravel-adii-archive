@@ -508,6 +508,63 @@
             showTabletteInfo(selectedOption);
         }
     });
+    
+    function bulkCreatePositions() {
+    const form = document.getElementById('bulkCreateForm');
+    if (!form) {
+        console.error('Formulaire de création groupée non trouvé');
+        return;
+    }
+    
+    const formData = new FormData(form);
+    
+    // Validation
+    const tabletteId = formData.get('tablette_id');
+    const nombrePositions = formData.get('nombre_positions');
+    const prefix = formData.get('prefix');
+    
+    if (!tabletteId || !nombrePositions || !prefix) {
+        alert('Veuillez remplir tous les champs obligatoires.');
+        return;
+    }
+    
+    if (nombrePositions < 1 || nombrePositions > 100) {
+        alert('Le nombre de positions doit être entre 1 et 100.');
+        return;
+    }
+    
+    fetch('{{ route("admin.positions.bulk-create") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            
+            // Rediriger vers la liste des positions ou recharger
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                location.reload();
+            }
+        } else {
+            alert('Erreur lors de la création: ' + (data.message || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la création des positions: ' + error.message);
+    });
+}
 </script>
 @endpush
 

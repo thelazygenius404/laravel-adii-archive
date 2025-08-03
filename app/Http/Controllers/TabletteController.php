@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Tablette;
 use App\Models\Travee;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class TabletteController extends Controller
 {
@@ -134,5 +135,167 @@ class TabletteController extends Controller
                             ->get();
         
         return response()->json($tablettes);
+    }
+        public function export(Request $request)
+    {
+        $query = Tablette::with(['travee.salle.organisme']);
+
+        // Apply filters
+        if ($request->filled('search')) {
+            $query->where('nom', 'LIKE', "%{$request->search}%");
+        }
+
+        if ($request->filled('travee_id')) {
+            $query->where('travee_id', $request->travee_id);
+        }
+
+        $tablettes = $query->withCount('positions')
+                        ->orderBy('nom')
+                        ->get();
+
+        $filename = 'tablettes_' . date('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function() use ($tablettes) {
+            $file = fopen('php://output', 'w');
+            
+            // Add UTF-8 BOM for proper Excel encoding
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV headers
+            fputcsv($file, [
+                'ID',
+                'Nom',
+                'Travée',
+                'Salle',
+                'Organisme',
+                'Nombre Positions',
+                'Positions Occupées',
+                'Utilisation (%)',
+                'Date de Création'
+            ], ';');
+            
+            foreach ($tablettes as $tablette) {
+                $positionsOccupees = $tablette->positions()->where('vide', false)->count();
+                $utilisation = $tablette->positions_count > 0 ? 
+                            ($positionsOccupees / $tablette->positions_count) * 100 : 0;
+                
+                fputcsv($file, [
+                    $tablette->id,
+                    $tablette->nom,
+                    $tablette->travee->nom,
+                    $tablette->travee->salle->nom,
+                    $tablette->travee->salle->organisme->nom_org,
+                    $tablette->positions_count ?? 0,
+                    $positionsOccupees,
+                    number_format($utilisation, 1),
+                    $tablette->created_at->format('d/m/Y H:i:s')
+                ], ';');
+            }
+            
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+        ]);
+    }
+    public function bulkAction(Request $request)
+    {
+        $validated = $request->validate([
+            'action' => 'required|in:delete,export,move',
+            'tablette_ids' => 'required|array',
+            'tablette_ids.*' => 'exists:tablettes,id',
+            'new_travee_id' => 'nullable|exists:travees,id'
+        ]);
+
+        $tabletteIds = $validated['tablette_ids'];
+        $action = $validated['action'];
+
+        try {
+            switch ($action) {
+                case 'delete':
+                    return $this->bulkDeleteTablettes($tabletteIds);
+                case 'export':
+                    return $this->bulkExportTablettes($tabletteIds);
+                case 'move':
+                    return $this->bulkMoveTablettes($tabletteIds, $validated['new_travee_id'] ?? null);
+                default:
+                    return response()->json(['success' => false, 'message' => 'Action non reconnue.'], 400);
+            }
+        } catch (\Exception $e) {
+            Log::error('Tablette bulk action error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'exécution: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function bulkDeleteTablettes($tabletteIds)
+    {
+        $tablettes = Tablette::whereIn('id', $tabletteIds)->get();
+        $errors = [];
+        $deleted = 0;
+
+        foreach ($tablettes as $tablette) {
+            if ($tablette->positions()->count() > 0) {
+                $errors[] = "La tablette '{$tablette->nom}' contient des positions.";
+                continue;
+            }
+            $tablette->delete();
+            $deleted++;
+        }
+
+        return response()->json([
+            'success' => $deleted > 0,
+            'message' => "{$deleted} tablette(s) supprimée(s).",
+            'errors' => $errors
+        ]);
+    }
+
+    private function bulkExportTablettes($tabletteIds)
+    {
+        $tablettes = Tablette::with(['travee.salle.organisme'])
+                            ->withCount('positions')
+                            ->whereIn('id', $tabletteIds)
+                            ->get();
+
+        $filename = 'tablettes_selection_' . date('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function() use ($tablettes) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            fputcsv($file, ['Nom', 'Travée', 'Salle', 'Organisme', 'Positions', 'Date'], ';');
+            
+            foreach ($tablettes as $tablette) {
+                fputcsv($file, [
+                    $tablette->nom,
+                    $tablette->travee->nom,
+                    $tablette->travee->salle->nom,
+                    $tablette->travee->salle->organisme->nom_org,
+                    $tablette->positions_count,
+                    $tablette->created_at->format('d/m/Y')
+                ], ';');
+            }
+            fclose($file);
+        }, $filename);
+    }
+
+    private function bulkMoveTablettes($tabletteIds, $newTraveeId)
+    {
+        if (!$newTraveeId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Travée de destination requise.'
+            ], 400);
+        }
+
+        $updated = Tablette::whereIn('id', $tabletteIds)
+                        ->update(['travee_id' => $newTraveeId]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$updated} tablette(s) déplacée(s)."
+        ]);
     }
 }
