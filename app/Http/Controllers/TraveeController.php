@@ -136,119 +136,266 @@ class TraveeController extends Controller
         
         return response()->json($travees);
     }
-        public function bulkAction(Request $request)
+       
+    public function bulkAction(Request $request)
     {
-        $validated = $request->validate([
-            'action' => 'required|in:delete,export,move,optimize',
-            'travee_ids' => 'required|array',
-            'travee_ids.*' => 'exists:travees,id',
-            'new_salle_id' => 'nullable|exists:salles,id'
-        ]);
-
-        $traveeIds = $validated['travee_ids'];
-        $action = $validated['action'];
-
         try {
+            $validated = $request->validate([
+                'action' => 'required|string|in:delete,export,move,optimize',
+                'travee_ids' => 'required|array|min:1',
+                'travee_ids.*' => 'integer|exists:travees,id',
+                'new_salle_id' => 'nullable|integer|exists:salles,id'
+            ], [
+                'action.required' => 'L\'action est obligatoire.',
+                'action.in' => 'Action non valide.',
+                'travee_ids.required' => 'Au moins une travée doit être sélectionnée.',
+                'travee_ids.array' => 'Format de données invalide pour les travées.',
+                'travee_ids.min' => 'Au moins une travée doit être sélectionnée.',
+                'travee_ids.*.exists' => 'Une ou plusieurs travées sélectionnées n\'existent pas.',
+                'new_salle_id.exists' => 'La salle sélectionnée n\'existe pas.'
+            ]);
+
+            $traveeIds = $validated['travee_ids'];
+            $action = $validated['action'];
+
+            // Exécuter l'action
             switch ($action) {
-                case 'delete':
-                    return $this->bulkDeleteTravees($traveeIds);
                 case 'export':
-                    return $this->bulkExportTravees($traveeIds);
+                    return $this->bulkExport($traveeIds);
+                
+                case 'delete':
+                    return $this->bulkDelete($traveeIds);
+                
                 case 'move':
-                    return $this->bulkMoveTravees($traveeIds, $validated['new_salle_id'] ?? null);
+                    return $this->bulkMove($traveeIds, $validated['new_salle_id'] ?? null);
+                
                 case 'optimize':
-                    return $this->bulkOptimizeTravees($traveeIds);
+                    return $this->bulkOptimize($traveeIds);
+                
                 default:
-                    return response()->json(['success' => false, 'message' => 'Action non reconnue.'], 400);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Action non reconnue.'
+                    ], 400);
             }
-        } catch (\Exception $e) {
-            Log::error('Travee bulk action error', ['error' => $e->getMessage()]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'exécution: ' . $e->getMessage()
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+            
+        } catch (\Exception $e) {
+            Log::error('Travee bulk action error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur interne du serveur: ' . $e->getMessage()
             ], 500);
         }
     }
 
-    private function bulkDeleteTravees($traveeIds)
+    /**
+     * Bulk delete multiple travees.
+     */
+    private function bulkDelete($traveeIds)
     {
-        $travees = Travee::whereIn('id', $traveeIds)->get();
-        $errors = [];
-        $deleted = 0;
+        try {
+            $travees = Travee::whereIn('id', $traveeIds)->get();
+            $errors = [];
+            $deleted = 0;
 
-        foreach ($travees as $travee) {
-            if ($travee->tablettes()->count() > 0) {
-                $errors[] = "La travée '{$travee->nom}' contient des tablettes.";
-                continue;
+            foreach ($travees as $travee) {
+                // Vérifier si la travée contient des tablettes
+                if ($travee->tablettes()->count() > 0) {
+                    $errors[] = "La travée '{$travee->nom}' contient des tablettes et ne peut pas être supprimée.";
+                    continue;
+                }
+
+                $travee->delete();
+                $deleted++;
             }
-            $travee->delete();
-            $deleted++;
+
+            $message = $deleted > 0 ? "{$deleted} travée(s) supprimée(s) avec succès." : 'Aucune travée supprimée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $deleted > 0,
+                'message' => $message,
+                'deleted' => $deleted,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk delete travees error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => $deleted > 0,
-            'message' => "{$deleted} travée(s) supprimée(s).",
-            'errors' => $errors
-        ]);
     }
-    private function bulkExportTravees($traveeIds)
+
+    /**
+     * Bulk export specific travees.
+     */
+    private function bulkExport($traveeIds)
     {
-        $travees = Travee::whereIn('id', $traveeIds)->get();
-        $exportData = $travees->map(function ($travee) {
-            return [
-                'id' => $travee->id,
-                'nom' => $travee->nom,
-                'salle' => $travee->salle->nom,
-                'organisme' => $travee->salle->organisme->nom,
-                'tablettes_count' => $travee->tablettes_count,
-            ];
-        });
+        $travees = Travee::with(['salle.organisme'])
+                        ->withCount(['tablettes', 'positions'])
+                        ->whereIn('id', $traveeIds)
+                        ->orderBy('nom')
+                        ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $exportData
+        $filename = 'travees_selection_' . date('Y-m-d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function() use ($travees) {
+            $file = fopen('php://output', 'w');
+            
+            // Add UTF-8 BOM for proper Excel encoding
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // CSV headers
+            fputcsv($file, [
+                'ID',
+                'Nom',
+                'Salle',
+                'Organisme',
+                'Nombre Tablettes',
+                'Nombre Positions',
+                'Utilisation (%)',
+                'Date de création'
+            ], ';');
+            
+            foreach ($travees as $travee) {
+                $utilisation = $travee->positions_count > 0 ? 
+                             ($travee->positions_occupees / $travee->positions_count) * 100 : 0;
+                
+                fputcsv($file, [
+                    $travee->id,
+                    $travee->nom,
+                    $travee->salle->nom,
+                    $travee->salle->organisme->nom_org,
+                    $travee->tablettes_count ?? 0,
+                    $travee->positions_count ?? 0,
+                    number_format($utilisation, 1),
+                    $travee->created_at->format('d/m/Y H:i:s')
+                ], ';');
+            }
+            
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
         ]);
     }
-    
-    private function bulkMoveTravees($traveeIds, $newSalleId)
+
+    /**
+     * Bulk move multiple travees to a new salle.
+     */
+    private function bulkMove($traveeIds, $newSalleId)
     {
         if (!$newSalleId) {
-            return response()->json(['success' => false, 'message' => 'ID de la
-    nouvelle salle requis.'], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Salle de destination requise pour le déplacement.'
+            ], 400);
         }
-        
-        $newSalle = Salle::find($newSalleId);       
-        if (!$newSalle) {
-            return response()->json(['success' => false, 'message' => 'Salle non trouvée.'], 404);
-        }
-        
-        $travees = Travee::whereIn('id', $traveeIds)->get();
-        $moved = 0;
-        $errors = [];
-        foreach ($travees as $travee) {
-            if ($travee->tablettes()->count() > 0) {
-                $errors[] = "La travée '{$travee->nom}' contient des tablettes.";
-                continue;
+
+        try {
+            $newSalle = Salle::find($newSalleId);
+            if (!$newSalle) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Salle de destination introuvable.'
+                ], 404);
             }
-            $travee->salle_id = $newSalleId;
-            $travee->save();
-            $moved++;
+
+            $travees = Travee::whereIn('id', $traveeIds)->get();
+            $moved = 0;
+            $errors = [];
+
+            foreach ($travees as $travee) {
+                // Vérifier la capacité de la nouvelle salle
+                $positionsCount = $travee->positions()->count();
+                if (($newSalle->capacite_actuelle + $positionsCount) > $newSalle->capacite_max) {
+                    $errors[] = "La travée '{$travee->nom}' ne peut pas être déplacée - capacité insuffisante dans la salle de destination.";
+                    continue;
+                }
+
+                $travee->update(['salle_id' => $newSalleId]);
+                $moved++;
+            }
+
+            // Mettre à jour les capacités des salles
+            if ($moved > 0) {
+                $newSalle->updateCapaciteActuelle();
+                
+                // Mettre à jour les anciennes salles
+                $oldSalles = Salle::whereIn('id', $travees->pluck('salle_id')->unique())->get();
+                foreach ($oldSalles as $oldSalle) {
+                    $oldSalle->updateCapaciteActuelle();
+                }
+            }
+
+            $message = $moved > 0 ? "{$moved} travée(s) déplacée(s) vers la salle '{$newSalle->nom}'." : 'Aucune travée déplacée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $moved > 0,
+                'message' => $message,
+                'moved' => $moved,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk move travees error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du déplacement: ' . $e->getMessage()
+            ], 500);
         }
-        
-        return response()->json([
-            'success' => $moved > 0,
-            'message' => "{$moved} travée(s) déplacée(s) vers la salle '{$newSalle->nom}'.",
-            'errors' => $errors
-        ]);
     }
 
-    private function bulkOptimizeTravees($traveeIds)
+    /**
+     * Bulk optimize multiple travees.
+     */
+    private function bulkOptimize($traveeIds)
     {
-        // Placeholder for optimization logic
-        // This could involve re-indexing, cleaning up unused data, etc.
-        return response()->json([
-            'success' => true,
-            'message' => 'Optimisation des travées effectuée avec succès.'
-        ]);
+        try {
+            $travees = Travee::whereIn('id', $traveeIds)->get();
+            $optimized = 0;
+
+            foreach ($travees as $travee) {
+                // Optimisation: mise à jour des compteurs et nettoyage
+                $travee->tablettes()->each(function ($tablette) {
+                    $tablette->positions()->each(function ($position) {
+                        // Vérifier la cohérence des statuts
+                        if (!$position->vide && !$position->boite) {
+                            $position->update(['vide' => true]);
+                        }
+                    });
+                });
+                
+                $optimized++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$optimized} travée(s) optimisée(s) avec succès.",
+                'optimized' => $optimized
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk optimize travees error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'optimisation: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -198,104 +198,219 @@ class TabletteController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"'
         ]);
     }
-    public function bulkAction(Request $request)
+     public function bulkAction(Request $request)
     {
-        $validated = $request->validate([
-            'action' => 'required|in:delete,export,move',
-            'tablette_ids' => 'required|array',
-            'tablette_ids.*' => 'exists:tablettes,id',
-            'new_travee_id' => 'nullable|exists:travees,id'
-        ]);
-
-        $tabletteIds = $validated['tablette_ids'];
-        $action = $validated['action'];
-
         try {
+            $validated = $request->validate([
+                'action' => 'required|string|in:delete,export,move,optimize',
+                'tablette_ids' => 'required|array|min:1',
+                'tablette_ids.*' => 'integer|exists:tablettes,id',
+                'new_travee_id' => 'nullable|integer|exists:travees,id'
+            ], [
+                'action.required' => 'L\'action est obligatoire.',
+                'action.in' => 'Action non valide.',
+                'tablette_ids.required' => 'Au moins une tablette doit être sélectionnée.',
+                'tablette_ids.array' => 'Format de données invalide pour les tablettes.',
+                'tablette_ids.min' => 'Au moins une tablette doit être sélectionnée.',
+                'tablette_ids.*.exists' => 'Une ou plusieurs tablettes sélectionnées n\'existent pas.',
+                'new_travee_id.exists' => 'La travée sélectionnée n\'existe pas.'
+            ]);
+
+            $tabletteIds = $validated['tablette_ids'];
+            $action = $validated['action'];
+
+            // Exécuter l'action
             switch ($action) {
-                case 'delete':
-                    return $this->bulkDeleteTablettes($tabletteIds);
                 case 'export':
-                    return $this->bulkExportTablettes($tabletteIds);
+                    return $this->bulkExport($tabletteIds);
+                
+                case 'delete':
+                    return $this->bulkDelete($tabletteIds);
+                
                 case 'move':
-                    return $this->bulkMoveTablettes($tabletteIds, $validated['new_travee_id'] ?? null);
+                    return $this->bulkMove($tabletteIds, $validated['new_travee_id'] ?? null);
+                
+                case 'optimize':
+                    return $this->bulkOptimize($tabletteIds);
+                
                 default:
-                    return response()->json(['success' => false, 'message' => 'Action non reconnue.'], 400);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Action non reconnue.'
+                    ], 400);
             }
-        } catch (\Exception $e) {
-            Log::error('Tablette bulk action error', ['error' => $e->getMessage()]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Erreur lors de l\'exécution: ' . $e->getMessage()
+                'message' => 'Erreur de validation.',
+                'errors' => $e->errors()
+            ], 422);
+            
+        } catch (\Exception $e) {
+            Log::error('Tablette bulk action error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur interne du serveur: ' . $e->getMessage()
             ], 500);
         }
     }
 
-    private function bulkDeleteTablettes($tabletteIds)
+    /**
+     * Bulk delete multiple tablettes.
+     */
+    private function bulkDelete($tabletteIds)
     {
-        $tablettes = Tablette::whereIn('id', $tabletteIds)->get();
-        $errors = [];
-        $deleted = 0;
+        try {
+            $tablettes = Tablette::whereIn('id', $tabletteIds)->get();
+            $errors = [];
+            $deleted = 0;
 
-        foreach ($tablettes as $tablette) {
-            if ($tablette->positions()->count() > 0) {
-                $errors[] = "La tablette '{$tablette->nom}' contient des positions.";
-                continue;
+            foreach ($tablettes as $tablette) {
+                // Vérifier si la tablette contient des positions
+                if ($tablette->positions()->count() > 0) {
+                    $errors[] = "La tablette '{$tablette->nom}' contient des positions et ne peut pas être supprimée.";
+                    continue;
+                }
+
+                $tablette->delete();
+                $deleted++;
             }
-            $tablette->delete();
-            $deleted++;
-        }
 
-        return response()->json([
-            'success' => $deleted > 0,
-            'message' => "{$deleted} tablette(s) supprimée(s).",
-            'errors' => $errors
-        ]);
+            $message = $deleted > 0 ? "{$deleted} tablette(s) supprimée(s) avec succès." : 'Aucune tablette supprimée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $deleted > 0,
+                'message' => $message,
+                'deleted' => $deleted,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk delete tablettes error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    private function bulkExportTablettes($tabletteIds)
+    /**
+     * Bulk export specific tablettes.
+     */
+    private function bulkExport($tabletteIds)
     {
         $tablettes = Tablette::with(['travee.salle.organisme'])
                             ->withCount('positions')
                             ->whereIn('id', $tabletteIds)
+                            ->orderBy('nom')
                             ->get();
 
         $filename = 'tablettes_selection_' . date('Y-m-d_H-i-s') . '.csv';
 
         return response()->streamDownload(function() use ($tablettes) {
             $file = fopen('php://output', 'w');
+            
+            // Add UTF-8 BOM for proper Excel encoding
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
             
-            fputcsv($file, ['Nom', 'Travée', 'Salle', 'Organisme', 'Positions', 'Date'], ';');
+            // CSV headers
+            fputcsv($file, [
+                'ID',
+                'Nom',
+                'Travée',
+                'Salle',
+                'Organisme',
+                'Nombre Positions',
+                'Positions Occupées',
+                'Utilisation (%)',
+                'Date de création'
+            ], ';');
             
             foreach ($tablettes as $tablette) {
+                $positionsOccupees = $tablette->positions()->where('vide', false)->count();
+                $utilisation = $tablette->positions_count > 0 ? 
+                            ($positionsOccupees / $tablette->positions_count) * 100 : 0;
+                
                 fputcsv($file, [
+                    $tablette->id,
                     $tablette->nom,
                     $tablette->travee->nom,
                     $tablette->travee->salle->nom,
                     $tablette->travee->salle->organisme->nom_org,
-                    $tablette->positions_count,
-                    $tablette->created_at->format('d/m/Y')
+                    $tablette->positions_count ?? 0,
+                    $positionsOccupees,
+                    number_format($utilisation, 1),
+                    $tablette->created_at->format('d/m/Y H:i:s')
                 ], ';');
             }
+            
             fclose($file);
-        }, $filename);
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+        ]);
     }
 
-    private function bulkMoveTablettes($tabletteIds, $newTraveeId)
+    /**
+     * Bulk move multiple tablettes to a new travee.
+     */
+    private function bulkMove($tabletteIds, $newTraveeId)
     {
         if (!$newTraveeId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Travée de destination requise.'
+                'message' => 'Travée de destination requise pour le déplacement.'
             ], 400);
         }
 
-        $updated = Tablette::whereIn('id', $tabletteIds)
-                        ->update(['travee_id' => $newTraveeId]);
+        try {
+            $newTravee = Travee::find($newTraveeId);
+            if (!$newTravee) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Travée de destination introuvable.'
+                ], 404);
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => "{$updated} tablette(s) déplacée(s)."
-        ]);
+            $tablettes = Tablette::whereIn('id', $tabletteIds)->get();
+            $moved = 0;
+            $errors = [];
+
+            foreach ($tablettes as $tablette) {
+                // Vérifier si la tablette contient des positions occupées
+                $positionsOccupees = $tablette->positions()->where('vide', false)->count();
+                if ($positionsOccupees > 0) {
+                    $errors[] = "La tablette '{$tablette->nom}' contient des positions occupées et nécessite une attention particulière.";
+                    // On peut quand même la déplacer mais avec un avertissement
+                }
+
+                $tablette->update(['travee_id' => $newTraveeId]);
+                $moved++;
+            }
+
+            $message = $moved > 0 ? "{$moved} tablette(s) déplacée(s) vers la travée '{$newTravee->nom}'." : 'Aucune tablette déplacée.';
+            if (!empty($errors)) {
+                $message .= ' Avertissements: ' . implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $moved > 0,
+                'message' => $message,
+                'moved' => $moved,
+                'warnings' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk move tablettes error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors du déplacement: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
