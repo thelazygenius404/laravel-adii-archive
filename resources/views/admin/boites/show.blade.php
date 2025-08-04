@@ -10,7 +10,7 @@
             Détails de la Boîte : {{ $boite->numero }}
         </h1>
         <div class="btn-group">
-            <a href="{{ route('admin.positions.index') }}" class="btn btn-outline-secondary">
+            <a href="{{ route('admin.boites.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>
                 Retour à la liste
             </a>
@@ -47,17 +47,29 @@
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Numéro</label>
-                            <div class="form-control-plaintext">{{ $boite->numero }}</div>
+                            <div class="form-control-plaintext fw-bold">{{ $boite->numero }}</div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Code Thématique</label>
-                            <div class="form-control-plaintext">{{ $boite->code_thematique ?? '-' }}</div>
+                            <div class="form-control-plaintext">
+                                @if($boite->code_thematique)
+                                    <span class="badge bg-info">{{ $boite->code_thematique }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Code Topographique</label>
-                            <div class="form-control-plaintext">{{ $boite->code_topo ?? '-' }}</div>
+                            <div class="form-control-plaintext">
+                                @if($boite->code_topo)
+                                    <span class="badge bg-secondary">{{ $boite->code_topo }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
                     
@@ -66,21 +78,21 @@
                             <label class="form-label">Statut</label>
                             <div class="form-control-plaintext">
                                 @if($boite->detruite)
-                                    <span class="badge bg-secondary">Détruite</span>
+                                    <span class="badge bg-secondary fs-6">Détruite</span>
                                 @else
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success fs-6">Active</span>
                                 @endif
                             </div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Capacité</label>
-                            <div class="form-control-plaintext">{{ $boite->capacite }} dossiers</div>
+                            <div class="form-control-plaintext fw-bold">{{ $boite->capacite }} dossiers</div>
                         </div>
                         
                         <div class="mb-3">
                             <label class="form-label">Dossiers présents</label>
-                            <div class="form-control-plaintext">{{ $boite->nbr_dossiers }}</div>
+                            <div class="form-control-plaintext fw-bold">{{ $boite->nbr_dossiers }}</div>
                         </div>
                     </div>
                 </div>
@@ -88,20 +100,14 @@
                 <div class="mb-3">
                     <label class="form-label">Taux d'occupation</label>
                     <div class="d-flex align-items-center">
-                        <div class="progress me-3" style="width: 200px; height: 10px;">
-                            <div class="progress-bar bg-{{ $boite->utilization_color }}" 
+                        <div class="progress me-3" style="width: 200px; height: 12px;">
+                            <div class="progress-bar bg-{{ $boite->utilization_color ?? ($boite->utilisation_percentage < 50 ? 'success' : ($boite->utilisation_percentage < 80 ? 'warning' : 'danger')) }}" 
                                  style="width: {{ $boite->utilisation_percentage }}%"></div>
                         </div>
-                        <span>{{ $boite->utilisation_percentage }}%</span>
+                        <span class="fw-bold">{{ $boite->utilisation_percentage }}%</span>
+                        <small class="text-muted ms-2">({{ $boite->capacite_restante }} places libres)</small>
                     </div>
                 </div>
-                
-                @if($boite->description)
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <div class="form-control-plaintext">{{ $boite->description }}</div>
-                    </div>
-                @endif
             </div>
         </div>
         
@@ -120,8 +126,8 @@
                             <div class="mb-3">
                                 <label class="form-label">Position</label>
                                 <div class="form-control-plaintext">
-                                    <a href="{{ route('admin.positions.show', $boite->position) }}">
-                                        {{ $boite->position->nom }}
+                                    <a href="{{ route('admin.positions.show', $boite->position) }}" class="text-decoration-none">
+                                        <i class="fas fa-map-marker-alt me-1"></i>{{ $boite->position->nom }}
                                     </a>
                                 </div>
                             </div>
@@ -129,8 +135,8 @@
                             <div class="mb-3">
                                 <label class="form-label">Tablette</label>
                                 <div class="form-control-plaintext">
-                                    <a href="{{ route('admin.tablettes.show', $boite->position->tablette) }}">
-                                        {{ $boite->position->tablette->nom }}
+                                    <a href="{{ route('admin.tablettes.show', $boite->position->tablette) }}" class="text-decoration-none">
+                                        <i class="fas fa-layer-group me-1"></i>{{ $boite->position->tablette->nom }}
                                     </a>
                                 </div>
                             </div>
@@ -139,8 +145,8 @@
                             <div class="mb-3">
                                 <label class="form-label">Travée</label>
                                 <div class="form-control-plaintext">
-                                    <a href="{{ route('admin.travees.show', $boite->position->tablette->travee) }}">
-                                        {{ $boite->position->tablette->travee->nom }}
+                                    <a href="{{ route('admin.travees.show', $boite->position->tablette->travee) }}" class="text-decoration-none">
+                                        <i class="fas fa-columns me-1"></i>{{ $boite->position->tablette->travee->nom }}
                                     </a>
                                 </div>
                             </div>
@@ -148,8 +154,8 @@
                             <div class="mb-3">
                                 <label class="form-label">Salle</label>
                                 <div class="form-control-plaintext">
-                                    <a href="{{ route('admin.salles.show', $boite->position->tablette->travee->salle) }}">
-                                        {{ $boite->position->tablette->travee->salle->nom }}
+                                    <a href="{{ route('admin.salles.show', $boite->position->tablette->travee->salle) }}" class="text-decoration-none">
+                                        <i class="fas fa-home me-1"></i>{{ $boite->position->tablette->travee->salle->nom }}
                                     </a>
                                 </div>
                             </div>
@@ -159,11 +165,18 @@
                     <div class="mb-3">
                         <label class="form-label">Chemin complet</label>
                         <div class="form-control-plaintext">
-                            {{ $boite->full_location }}
+                            <span class="badge bg-primary">{{ $boite->full_location }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Organisme</label>
+                        <div class="form-control-plaintext">
+                            <span class="badge bg-info fs-6">{{ $boite->position->tablette->travee->salle->organisme->nom_org }}</span>
                         </div>
                     </div>
                 @else
-                    <div class="text-center py-3">
+                    <div class="text-center py-4">
                         <i class="fas fa-map-marker-alt fa-3x text-muted mb-3"></i>
                         <p class="text-muted">Cette boîte n'est actuellement localisée dans aucune position</p>
                         <a href="{{ route('admin.boites.edit', $boite) }}" class="btn btn-primary">
@@ -177,34 +190,79 @@
         
         <!-- Dossiers -->
         <div class="card mt-4">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                     <i class="fas fa-folder me-2"></i>
                     Dossiers Contenus
+                    <span class="badge bg-primary ms-2">{{ $stats['total_dossiers'] }}</span>
                 </h5>
+                @if(!$boite->detruite && $boite->hasSpace())
+                    <a href="{{ route('admin.dossiers.create', ['boite_id' => $boite->id]) }}" class="btn btn-sm btn-success">
+                        <i class="fas fa-plus me-1"></i>
+                        Nouveau dossier
+                    </a>
+                @endif
             </div>
             <div class="card-body">
                 @if($boite->dossiers->count() > 0)
+                    <!-- Statistiques des dossiers -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ $stats['dossiers_actifs'] }}</h4>
+                                <small class="text-muted">Actifs</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">{{ $stats['dossiers_archives'] }}</h4>
+                                <small class="text-muted">Archivés</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-secondary">{{ $stats['dossiers_elimines'] }}</h4>
+                                <small class="text-muted">Éliminés</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">{{ $stats['capacite_restante'] }}</h4>
+                                <small class="text-muted">Places libres</small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Référence</th>
+                                    <th>Numéro</th>
                                     <th>Titre</th>
                                     <th>Statut</th>
+                                    <th>Calendrier</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($boite->dossiers as $dossier)
+                                @foreach($boite->dossiers->take(10) as $dossier)
                                     <tr>
-                                        <td>{{ $dossier->reference }}</td>
-                                        <td>{{ Str::limit($dossier->titre, 30) }}</td>
                                         <td>
-                                            @if($dossier->statut === 'elimine')
-                                                <span class="badge bg-secondary">Éliminé</span>
+                                            <span class="fw-bold">{{ $dossier->numero }}</span>
+                                        </td>
+                                        <td>
+                                            {{ Str::limit($dossier->titre, 40) }}
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ $dossier->status_badge_class ?? 'bg-secondary' }}">
+                                                {{ $dossier->status_display ?? $dossier->statut }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if($dossier->calendrierConservation)
+                                                <small class="text-muted">{{ $dossier->calendrierConservation->nature_dossier }}</small>
                                             @else
-                                                <span class="badge bg-success">Actif</span>
+                                                <span class="text-muted">-</span>
                                             @endif
                                         </td>
                                         <td>
@@ -218,18 +276,15 @@
                         </table>
                     </div>
                     
-                    <div class="text-center mt-3">
-                        <a href="{{ route('admin.dossiers.index', ['boite_id' => $boite->id]) }}" class="btn btn-sm btn-outline-primary">
-                            Voir tous les dossiers
-                        </a>
-                        @if(!$boite->detruite && $boite->hasSpace())
-                            <a href="{{ route('admin.dossiers.create', ['boite_id' => $boite->id]) }}" class="btn btn-sm btn-primary">
-                                <i class="fas fa-plus me-1"></i> Ajouter un dossier
+                    @if($boite->dossiers->count() > 10)
+                        <div class="text-center mt-3">
+                            <a href="{{ route('admin.dossiers.index', ['boite_id' => $boite->id]) }}" class="btn btn-outline-primary">
+                                Voir tous les {{ $boite->dossiers->count() }} dossiers
                             </a>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
                 @else
-                    <div class="text-center py-3">
+                    <div class="text-center py-4">
                         <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
                         <p class="text-muted">Cette boîte ne contient actuellement aucun dossier</p>
                         @if(!$boite->detruite)
@@ -313,36 +368,44 @@
             </div>
         </div>
         
-        <!-- Statistiques -->
+        <!-- Statistiques détaillées -->
         <div class="card mt-4">
             <div class="card-header">
                 <h6 class="card-title mb-0">
                     <i class="fas fa-chart-pie me-2"></i>
-                    Statistiques
+                    Statistiques Détaillées
                 </h6>
             </div>
             <div class="card-body">
-                <div class="text-center mb-3">
-                    <h2 class="text-primary">{{ $boite->nbr_dossiers }}</h2>
-                    <p class="text-muted">Dossiers dans cette boîte</p>
+                <div class="text-center mb-4">
+                    <div class="row">
+                        <div class="col-6">
+                            <h3 class="text-primary">{{ $boite->nbr_dossiers }}</h3>
+                            <small class="text-muted">Dossiers</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success">{{ $stats['utilisation_percentage'] }}%</h3>
+                            <small class="text-muted">Occupation</small>
+                        </div>
+                    </div>
                 </div>
                 
                 <hr>
                 
                 <div class="mb-2">
                     <span class="text-muted">Capacité restante :</span>
-                    <span class="fw-bold">{{ $boite->capacite_restante }} dossiers</span>
+                    <span class="fw-bold text-success">{{ $boite->capacite_restante }} dossiers</span>
                 </div>
                 <div class="mb-2">
                     <span class="text-muted">Score d'efficacité :</span>
-                    <span class="fw-bold">{{ $boite->efficiency_score }}/100</span>
+                    <span class="fw-bold">{{ $boite->efficiency_score ?? 'N/A' }}/100</span>
                 </div>
                 <div class="mb-2">
                     <span class="text-muted">Âge de la boîte :</span>
-                    <span class="fw-bold">{{ $boite->age_in_days }} jours</span>
+                    <span class="fw-bold">{{ $boite->age_in_days ?? $boite->created_at->diffInDays(now()) }} jours</span>
                 </div>
                 
-                @if($boite->position)
+                @if($boite->position)   
                     <hr>
                     
                     <div class="mb-2">
@@ -384,7 +447,7 @@
                 </div>
                 <div class="mb-2">
                     <span class="text-muted">Dernière activité :</span>
-                    <div class="font-monospace">{{ $boite->last_activity->format('d/m/Y H:i') }}</div>
+                    <div class="font-monospace">{{ ($boite->last_activity ?? $boite->updated_at)->format('d/m/Y H:i') }}</div>
                 </div>
             </div>
         </div>
@@ -488,24 +551,27 @@
 <script>
     // Confirmer la destruction
     function confirmDestruction() {
-        const modal = new bootstrap.Modal(document.getElementById('destructionModal'));
-        modal.show();
-    }
-    
-    // Restaurer la boîte
-    function restoreBoite() {
-        const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
-        modal.show();
-    }
+    const modal = new bootstrap.Modal(document.getElementById('destructionModal'));
+    modal.show();
+}
+
+// Restaurer la boîte
+function restoreBoite() {
+    const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
+    modal.show();
+}
     
     // Afficher le QR Code
     function showQrCode() {
         const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
         modal.show();
         
+        // Vider le conteneur précédent
+        document.getElementById("qrCodeContainer").innerHTML = "";
+        
         // Générer le QR Code
         new QRCode(document.getElementById("qrCodeContainer"), {
-            text: "{{ $boite->qr_code_data }}",
+            text: "{{ $boite->qr_code_data ?? json_encode(['type' => 'boite', 'id' => $boite->id, 'numero' => $boite->numero]) }}",
             width: 200,
             height: 200,
             colorDark : "#000000",
@@ -525,10 +591,14 @@
     // Télécharger le QR Code
     function downloadQrCode() {
         const canvas = document.querySelector('#qrCodeContainer canvas');
-        const link = document.createElement('a');
-        link.download = 'qr-code-boite-{{ $boite->id }}.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        if (canvas) {
+            const link = document.createElement('a');
+            link.download = 'qr-code-boite-{{ $boite->id }}.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } else {
+            alert('Veuillez d\'abord générer le QR Code');
+        }
     }
 </script>
 @endpush
@@ -550,12 +620,25 @@
     }
     
     .progress {
-        height: 10px;
+        height: 12px;
         background-color: #e9ecef;
     }
     
     .bg-gray {
         background-color: #6c757d;
+    }
+
+    .card-body h3, .card-body h4 {
+        font-weight: 700;
+    }
+
+    .form-control-plaintext {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .badge.fs-6 {
+        font-size: 0.875rem !important;
     }
 </style>
 @endpush

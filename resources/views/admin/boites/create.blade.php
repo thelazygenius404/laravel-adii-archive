@@ -31,7 +31,7 @@
                 <form action="{{ route('admin.boites.store') }}" method="POST">
                     @csrf
                     
-                    <!-- Numéro et codes -->
+                    <!-- Numéro et capacité -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="numero" class="form-label">Numéro <span class="text-danger">*</span></label>

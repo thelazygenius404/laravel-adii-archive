@@ -6,6 +6,7 @@ use App\Models\Boite;
 use App\Models\Position;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class BoiteController extends Controller
 {
@@ -219,20 +220,16 @@ public function index(Request $request)
     /**
      * Mark boite as destroyed (logical deletion).
      */
-    public function destroyBox(Boite $boite)
+        public function destroyBox(Boite $boite)
     {
         try {
             $boite->markAsDestroyed();
             
-            return response()->json([
-                'success' => true,
-                'message' => 'Boîte marquée comme détruite avec succès.'
-            ]);
+            return redirect()->route('admin.boites.index')
+                            ->with('success', 'Boîte "' . $boite->numero . '" marquée comme détruite avec succès.');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la destruction de la boîte: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de la destruction de la boîte: ' . $e->getMessage());
         }
     }
 
@@ -244,18 +241,13 @@ public function index(Request $request)
         try {
             $boite->restoreFromDestroyed();
             
-            return response()->json([
-                'success' => true,
-                'message' => 'Boîte restaurée avec succès.'
-            ]);
+            return redirect()->route('admin.boites.index')
+                            ->with('success', 'Boîte "' . $boite->numero . '" restaurée avec succès.');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la restauration: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de la restauration: ' . $e->getMessage());
         }
     }
-
     /**
      * Get boites by position for API/AJAX requests.
      */
@@ -272,7 +264,11 @@ public function index(Request $request)
      * Export boites to CSV.
      */
     public function export(Request $request)
-    {
+{
+    try {
+        // Log pour debug
+        Log::info('Export method called', $request->all());
+        
         $query = Boite::with(['position.tablette.travee.salle.organisme']);
 
         // Apply filters
@@ -296,11 +292,16 @@ public function index(Request $request)
 
         $boites = $query->withCount('dossiers')->orderBy('numero')->get();
 
+        Log::info('Boites found for export: ' . $boites->count());
+
         $filename = 'boites_' . date('Y-m-d_H-i-s') . '.csv';
 
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0'
         ];
 
         $callback = function() use ($boites) {
@@ -326,17 +327,21 @@ public function index(Request $request)
             
             foreach ($boites as $boite) {
                 fputcsv($file, [
-                    $boite->numero,
-                    $boite->code_thematique,
-                    $boite->code_topo,
-                    $boite->capacite,
-                    $boite->nbr_dossiers,
-                    $boite->utilisation_percentage,
-                    $boite->full_location,
-                    $boite->position->tablette->travee->salle->organisme->nom_org,
-                    $boite->position->tablette->travee->salle->nom,
+                    $boite->numero ?? '',
+                    $boite->code_thematique ?? '',
+                    $boite->code_topo ?? '',
+                    $boite->capacite ?? 0,
+                    $boite->nbr_dossiers ?? 0,
+                    $boite->utilisation_percentage ?? 0,
+                    $boite->position ? $boite->full_location : 'Non localisée',
+                    $boite->position && $boite->position->tablette && $boite->position->tablette->travee && $boite->position->tablette->travee->salle && $boite->position->tablette->travee->salle->organisme 
+                        ? $boite->position->tablette->travee->salle->organisme->nom_org 
+                        : 'N/A',
+                    $boite->position && $boite->position->tablette && $boite->position->tablette->travee && $boite->position->tablette->travee->salle 
+                        ? $boite->position->tablette->travee->salle->nom 
+                        : 'N/A',
                     $boite->detruite ? 'Détruite' : 'Active',
-                    $boite->created_at->format('d/m/Y H:i:s')
+                    $boite->created_at ? $boite->created_at->format('d/m/Y H:i:s') : ''
                 ], ';');
             }
             
@@ -344,38 +349,146 @@ public function index(Request $request)
         };
 
         return response()->stream($callback, 200, $headers);
-    }
 
+    } catch (\Exception $e) {
+        Log::error('Export error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString(),
+            'request' => $request->all()
+        ]);
+        
+        return redirect()->route('admin.boites.index')
+                        ->with('error', 'Erreur lors de l\'exportation: ' . $e->getMessage());
+    }
+}
     /**
      * Bulk operations on multiple boites.
      */
-    public function bulkAction(Request $request)
+        public function bulkAction(Request $request)
     {
-        $validated = $request->validate([
-            'action' => 'required|in:delete,destroy,export,move',
-            'boite_ids' => 'required|array',
-            'boite_ids.*' => 'exists:boites,id',
-            'new_position_id' => 'nullable|exists:positions,id',
-        ]);
+        try {
+            $validated = $request->validate([
+                'action' => 'required|in:delete,destroy,restore,export',
+                'boite_ids' => 'required|array|min:1',
+                'boite_ids.*' => 'integer|exists:boites,id',
+            ], [
+                'action.required' => 'L\'action est obligatoire.',
+                'action.in' => 'Action non valide.',
+                'boite_ids.required' => 'Aucune boîte sélectionnée.',
+                'boite_ids.array' => 'Format de données invalide.',
+                'boite_ids.min' => 'Au moins une boîte doit être sélectionnée.',
+                'boite_ids.*.exists' => 'Une ou plusieurs boîtes sélectionnées n\'existent pas.',
+            ]);
 
-        $boiteIds = $validated['boite_ids'];
-        $action = $validated['action'];
+            $boiteIds = $validated['boite_ids'];
+            $action = $validated['action'];
 
-        switch ($action) {
-            case 'delete':
-                return $this->bulkDelete($boiteIds);
+            switch ($action) {
+                case 'delete':
+                    return $this->bulkDelete($boiteIds);
+                
+                case 'destroy':
+                    return $this->bulkDestroy($boiteIds);
+                
+                case 'restore':
+                    return $this->bulkRestore($boiteIds);
+                
+                case 'export':
+                    return $this->bulkExport($boiteIds);
+                
+                default:
+                    return redirect()->route('admin.boites.index')
+                                    ->with('error', 'Action non reconnue.');
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errors = collect($e->errors())->flatten()->implode(' ');
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur de validation: ' . $errors);
             
-            case 'destroy':
-                return $this->bulkDestroy($boiteIds);
+        } catch (\Exception $e) {
+            Log::error('Bulk action error: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
-            case 'export':
-                return $this->bulkExport($boiteIds);
-            
-            case 'move':
-                return $this->bulkMove($boiteIds, $validated['new_position_id'] ?? null);
-            
-            default:
-                return response()->json(['success' => false, 'message' => 'Action non reconnue.'], 400);
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de l\'exécution de l\'action: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Bulk restore multiple boites.
+     */
+    private function bulkRestore($boiteIds)
+    {
+        try {
+            $boites = Boite::whereIn('id', $boiteIds)->get();
+            $restored = 0;
+            $errors = [];
+
+            foreach ($boites as $boite) {
+                try {
+                    if (!$boite->detruite) {
+                        $errors[] = "La boîte '{$boite->numero}' n'est pas détruite.";
+                        continue;
+                    }
+                    
+                    $boite->restoreFromDestroyed();
+                    $restored++;
+                } catch (\Exception $e) {
+                    $errors[] = "Erreur avec la boîte '{$boite->numero}': " . $e->getMessage();
+                }
+            }
+
+            $message = $restored > 0 ? "{$restored} boîte(s) restaurée(s) avec succès." : 'Aucune boîte restaurée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return redirect()->route('admin.boites.index')
+                            ->with($restored > 0 ? 'success' : 'warning', $message);
+
+        } catch (\Exception $e) {
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de la restauration: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Bulk destroy multiple boites (logical deletion).
+     */
+    private function bulkDestroy($boiteIds)
+    {
+        try {
+            $boites = Boite::whereIn('id', $boiteIds)->get();
+            $destroyed = 0;
+            $errors = [];
+
+            foreach ($boites as $boite) {
+                try {
+                    if ($boite->detruite) {
+                        $errors[] = "La boîte '{$boite->numero}' est déjà détruite.";
+                        continue;
+                    }
+                    
+                    $boite->markAsDestroyed();
+                    $destroyed++;
+                } catch (\Exception $e) {
+                    $errors[] = "Erreur avec la boîte '{$boite->numero}': " . $e->getMessage();
+                }
+            }
+
+            $message = $destroyed > 0 ? "{$destroyed} boîte(s) marquée(s) comme détruites." : 'Aucune boîte détruite.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
+            }
+
+            return redirect()->route('admin.boites.index')
+                            ->with($destroyed > 0 ? 'success' : 'warning', $message);
+
+        } catch (\Exception $e) {
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de la destruction: ' . $e->getMessage());
         }
     }
 
@@ -384,61 +497,45 @@ public function index(Request $request)
      */
     private function bulkDelete($boiteIds)
     {
-        $boites = Boite::whereIn('id', $boiteIds)->get();
-        $deleted = 0;
-        $errors = [];
+        try {
+            $boites = Boite::whereIn('id', $boiteIds)->get();
+            $deleted = 0;
+            $errors = [];
 
-        foreach ($boites as $boite) {
-            if ($boite->dossiers()->count() > 0) {
-                $errors[] = "La boîte '{$boite->numero}' contient des dossiers.";
-                continue;
+            foreach ($boites as $boite) {
+                if ($boite->dossiers()->count() > 0) {
+                    $errors[] = "La boîte '{$boite->numero}' contient des dossiers.";
+                    continue;
+                }
+
+                $positionId = $boite->position_id;
+                $boite->delete();
+                
+                if ($positionId) {
+                    Position::find($positionId)->markAsFree();
+                }
+                
+                $deleted++;
             }
 
-            $positionId = $boite->position_id;
-            $boite->delete();
-            Position::find($positionId)->markAsFree();
-            $deleted++;
-        }
-
-        $message = $deleted > 0 ? "{$deleted} boîte(s) supprimée(s) avec succès." : '';
-        if (!empty($errors)) {
-            $message .= ' Erreurs: ' . implode(' ', $errors);
-        }
-
-        return redirect()->route('admin.boites.index')
-                        ->with($deleted > 0 ? 'success' : 'error', $message);
-    }
-
-    /**
-     * Bulk destroy multiple boites (logical deletion).
-     */
-    private function bulkDestroy($boiteIds)
-    {
-        $boites = Boite::whereIn('id', $boiteIds)->get();
-        $destroyed = 0;
-        $errors = [];
-
-        foreach ($boites as $boite) {
-            try {
-                $boite->markAsDestroyed();
-                $destroyed++;
-            } catch (\Exception $e) {
-                $errors[] = "Erreur avec la boîte '{$boite->numero}': " . $e->getMessage();
+            $message = $deleted > 0 ? "{$deleted} boîte(s) supprimée(s) avec succès." : 'Aucune boîte supprimée.';
+            if (!empty($errors)) {
+                $message .= ' Erreurs: ' . implode(' ', $errors);
             }
-        }
 
-        $message = $destroyed > 0 ? "{$destroyed} boîte(s) marquée(s) comme détruites." : '';
-        if (!empty($errors)) {
-            $message .= ' Erreurs: ' . implode(' ', $errors);
-        }
+            return redirect()->route('admin.boites.index')
+                            ->with($deleted > 0 ? 'success' : 'warning', $message);
 
-        return redirect()->route('admin.boites.index')
-                        ->with($destroyed > 0 ? 'success' : 'error', $message);
+        } catch (\Exception $e) {
+            return redirect()->route('admin.boites.index')
+                            ->with('error', 'Erreur lors de la suppression: ' . $e->getMessage());
+        }
     }
 
     /**
      * Bulk export specific boites.
      */
+    
     private function bulkExport($boiteIds)
     {
         $boites = Boite::with(['position.tablette.travee.salle.organisme'])

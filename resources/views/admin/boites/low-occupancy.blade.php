@@ -43,18 +43,21 @@
                                class="form-control" 
                                id="threshold" 
                                name="threshold" 
-                               value="{{ request('threshold', 30) }}" 
+                               value="{{ request('threshold', 50) }}" 
                                min="1" 
                                max="99"
-                               placeholder="30">
+                               placeholder="50">
                     </div>
                     <div class="col-md-3">
-                        <label for="position_id" class="form-label">Position</label>
-                        <select class="form-select" id="position_id" name="position_id">
-                            <option value="">Toutes positions</option>
-                            @foreach($positions as $position)
-                                <option value="{{ $position->id }}" {{ request('position_id') == $position->id ? 'selected' : '' }}>
-                                    {{ $position->nom }} - {{ $position->rayonnage->nom ?? 'N/A' }} ({{ $position->rayonnage->salle->nom ?? 'N/A' }})
+                        <label for="organisme_id" class="form-label">Organisme</label>
+                        <select class="form-select" id="organisme_id" name="organisme_id">
+                            <option value="">Tous les organismes</option>
+                            @php
+                                $organismes = \App\Models\Organisme::orderBy('nom_org')->get();
+                            @endphp
+                            @foreach($organismes as $org)
+                                <option value="{{ $org->id }}" {{ request('organisme_id') == $org->id ? 'selected' : '' }}>
+                                    {{ $org->nom_org }}
                                 </option>
                             @endforeach
                         </select>
@@ -98,7 +101,7 @@
         <div class="card border-info">
             <div class="card-body text-center">
                 <i class="fas fa-percentage text-info fa-3x mb-3"></i>
-                <h3 class="text-info">{{ request('threshold', 30) }}%</h3>
+                <h3 class="text-info">{{ request('threshold', 50) }}%</h3>
                 <p class="text-muted mb-0">Seuil d'occupation</p>
             </div>
         </div>
@@ -107,7 +110,7 @@
         <div class="card border-success">
             <div class="card-body text-center">
                 <i class="fas fa-arrows-alt text-success fa-3x mb-3"></i>
-                <h3 class="text-success">{{ $boites->sum(function($b) { return $b->capacite - $b->nbr_dossiers; }) }}</h3>
+                <h3 class="text-success">{{ $boites->sum(function($b) { return $b->capacite_restante; }) }}</h3>
                 <p class="text-muted mb-0">Places disponibles</p>
             </div>
         </div>
@@ -116,7 +119,7 @@
         <div class="card border-primary">
             <div class="card-body text-center">
                 <i class="fas fa-compress-arrows-alt text-primary fa-3x mb-3"></i>
-                <h3 class="text-primary">{{ number_format($boites->avg('utilisation_percentage'), 1) }}%</h3>
+                <h3 class="text-primary">{{ $boites->count() > 0 ? number_format($boites->avg('utilisation_percentage'), 1) : 0 }}%</h3>
                 <p class="text-muted mb-0">Occupation moyenne</p>
             </div>
         </div>
@@ -130,7 +133,7 @@
             <div class="card-header">
                 <h5 class="card-title mb-0">
                     <i class="fas fa-list me-2"></i>
-                    Boîtes avec moins de {{ request('threshold', 30) }}% d'occupation
+                    Boîtes avec moins de {{ request('threshold', 50) }}% d'occupation
                     <span class="badge bg-warning ms-2">{{ $boites->total() }}</span>
                 </h5>
             </div>
@@ -154,7 +157,7 @@
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="me-3">
-                                                    <div class="boite-icon bg-warning">
+                                                    <div class="boite-icon bg-warning text-white rounded">
                                                         <i class="fas fa-archive"></i>
                                                     </div>
                                                 </div>
@@ -176,8 +179,11 @@
                                                 <div class="d-flex flex-column">
                                                     <span class="fw-bold">{{ $boite->position->nom }}</span>
                                                     <small class="text-muted">
-                                                        {{ $boite->position->rayonnage->nom ?? 'N/A' }} - 
-                                                        {{ $boite->position->rayonnage->salle->nom ?? 'N/A' }}
+                                                        {{ $boite->position->tablette->travee->nom }} - 
+                                                        {{ $boite->position->tablette->travee->salle->nom }}
+                                                    </small>
+                                                    <small class="text-muted">
+                                                        {{ $boite->position->tablette->travee->salle->organisme->nom_org }}
                                                     </small>
                                                 </div>
                                             @else
@@ -198,7 +204,7 @@
                                         </td>
                                         <td>
                                             <span class="badge bg-success fs-6">
-                                                {{ $boite->capacite - $boite->nbr_dossiers }} places
+                                                {{ $boite->capacite_restante }} places
                                             </span>
                                         </td>
                                         <td>
@@ -229,7 +235,7 @@
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 <button class="btn btn-outline-warning" 
-                                                        onclick="showOptimizationSuggestions({{ $boite->id }})" 
+                                                        onclick="showOptimizationSuggestions({{ $boite->id }}, '{{ $boite->numero }}', {{ $boite->utilisation_percentage }}, {{ $boite->capacite_restante }})" 
                                                         title="Suggestions d'optimisation">
                                                     <i class="fas fa-lightbulb"></i>
                                                 </button>
@@ -250,12 +256,13 @@
 
                     <!-- Suggestions d'optimisation globales -->
                     <div class="alert alert-info mt-4">
-                        <h6><i class="fas fa-lightbulb me-2"></i>Suggestions d'optimisation :</h6>
+                        <h6><i class="fas fa-lightbulb me-2"></i>Suggestions d'optimisation globales :</h6>
                         <ul class="mb-0">
                             <li>Considérer le regroupement des dossiers dans les boîtes les plus pleines</li>
                             <li>Évaluer la possibilité de fusionner certaines boîtes peu occupées</li>
                             <li>Vérifier si certaines boîtes peuvent être supprimées ou réaffectées</li>
                             <li>Analyser les tendances d'utilisation pour optimiser l'espace de stockage</li>
+                            <li>{{ $boites->sum(function($b) { return $b->capacite_restante; }) }} places pourraient être libérées par consolidation</li>
                         </ul>
                     </div>
                 @else
@@ -263,7 +270,7 @@
                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                         <h5 class="text-success">Excellente optimisation !</h5>
                         <p class="text-muted">
-                            Aucune boîte n'a une occupation inférieure à {{ request('threshold', 30) }}%.
+                            Aucune boîte n'a une occupation inférieure à {{ request('threshold', 50) }}%.
                             <br>Votre espace de stockage est bien optimisé.
                         </p>
                         <a href="{{ route('admin.boites.index') }}" class="btn btn-primary">
@@ -311,15 +318,14 @@
         window.location.href = `{{ route('admin.boites.low-occupancy') }}?${params.toString()}`;
     }
 
-    function showOptimizationSuggestions(boiteId) {
-        // Récupérer les détails de la boîte (vous pouvez faire un appel AJAX ici)
+    function showOptimizationSuggestions(boiteId, boiteNumero, utilisation, placesLibres) {
         const modal = new bootstrap.Modal(document.getElementById('optimizationModal'));
         
-        // Contenu des suggestions (à adapter selon vos besoins)
+        // Contenu des suggestions adapté aux données de la boîte
         const content = `
             <div class="alert alert-warning">
-                <h6><i class="fas fa-exclamation-triangle me-2"></i>Analyse de la boîte</h6>
-                <p>Cette boîte présente un faible taux d'occupation qui peut être optimisé.</p>
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Analyse de la boîte ${boiteNumero}</h6>
+                <p>Cette boîte présente un taux d'occupation de ${utilisation}% avec ${placesLibres} places disponibles.</p>
             </div>
             
             <h6>Actions recommandées :</h6>
@@ -328,24 +334,41 @@
                     <i class="fas fa-arrows-alt text-primary me-3"></i>
                     <div>
                         <strong>Regroupement</strong><br>
-                        <small class="text-muted">Déplacer les dossiers vers une boîte plus pleine</small>
+                        <small class="text-muted">Déplacer les dossiers vers une boîte plus pleine de la même zone</small>
                     </div>
                 </li>
                 <li class="list-group-item d-flex align-items-center">
                     <i class="fas fa-compress text-warning me-3"></i>
                     <div>
                         <strong>Compactage</strong><br>
-                        <small class="text-muted">Réorganiser les dossiers pour libérer de l'espace</small>
+                        <small class="text-muted">Réorganiser les dossiers pour libérer de l'espace continu</small>
                     </div>
                 </li>
                 <li class="list-group-item d-flex align-items-center">
                     <i class="fas fa-recycle text-success me-3"></i>
                     <div>
                         <strong>Réaffectation</strong><br>
-                        <small class="text-muted">Utiliser cette boîte pour de nouveaux dossiers</small>
+                        <small class="text-muted">Utiliser cette boîte pour de nouveaux dossiers prioritaires</small>
                     </div>
                 </li>
+                ${utilisation < 20 ? `
+                <li class="list-group-item d-flex align-items-center">
+                    <i class="fas fa-trash-alt text-danger me-3"></i>
+                    <div>
+                        <strong>Consolidation</strong><br>
+                        <small class="text-muted">Envisager la fusion avec une autre boîte peu occupée</small>
+                    </div>
+                </li>
+                ` : ''}
             </ul>
+            
+            <div class="mt-3">
+                <h6>Impact estimé :</h6>
+                <p class="text-muted">
+                    En optimisant cette boîte, vous pourriez libérer jusqu'à ${placesLibres} emplacements 
+                    et améliorer le taux d'occupation global de votre système de stockage.
+                </p>
+            </div>
         `;
         
         document.getElementById('optimizationContent').innerHTML = content;
@@ -353,8 +376,10 @@
     }
 
     function applyOptimization() {
-        alert('Fonctionnalité d\'optimisation automatique à implémenter selon vos besoins spécifiques.');
+        alert('Fonctionnalité d\'optimisation automatique à implémenter selon vos besoins spécifiques. Cette action pourrait inclure la suggestion de positions alternatives ou la création de tâches d\'optimisation.');
         // Ici vous pouvez implémenter la logique d'optimisation automatique
+        // Par exemple: redirection vers une page de gestion des déplacements
+        // window.location.href = '/admin/boites/optimize-suggestions';
     }
 
     // Validation du seuil
@@ -414,6 +439,10 @@
 
     .list-group-item:not(:last-child) {
         border-bottom: 1px solid #dee2e6 !important;
+    }
+
+    .badge.fs-6 {
+        font-size: 0.875rem !important;
     }
 </style>
 @endpush

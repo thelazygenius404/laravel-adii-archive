@@ -27,6 +27,7 @@
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>
                     Modification de la boîte
                 </h5>
             </div>
@@ -35,7 +36,7 @@
                     @csrf
                     @method('PUT')
                     
-                    <!-- Numéro et référence -->
+                    <!-- Numéro et capacité -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="numero" class="form-label">Numéro <span class="text-danger">*</span></label>
@@ -46,10 +47,34 @@
                             @enderror
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="reference" class="form-label">Référence</label>
-                            <input type="text" class="form-control @error('reference') is-invalid @enderror" 
-                                   id="reference" name="reference" value="{{ old('reference', $boite->reference) }}">
-                            @error('reference')
+                            <label for="capacite" class="form-label">Capacité <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control @error('capacite') is-invalid @enderror" 
+                                   id="capacite" name="capacite" value="{{ old('capacite', $boite->capacite) }}" min="1" required>
+                            @error('capacite')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                Actuel: {{ $boite->nbr_dossiers }} dossiers. 
+                                Ne peut pas être inférieur à ce nombre.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Codes thématique et topographique -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code_thematique" class="form-label">Code Thématique</label>
+                            <input type="text" class="form-control @error('code_thematique') is-invalid @enderror" 
+                                   id="code_thematique" name="code_thematique" value="{{ old('code_thematique', $boite->code_thematique) }}">
+                            @error('code_thematique')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="code_topo" class="form-label">Code Topographique</label>
+                            <input type="text" class="form-control @error('code_topo') is-invalid @enderror" 
+                                   id="code_topo" name="code_topo" value="{{ old('code_topo', $boite->code_topo) }}">
+                            @error('code_topo')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -57,9 +82,9 @@
                     
                     <!-- Position -->
                     <div class="mb-3">
-                        <label for="position_id" class="form-label">Position</label>
+                        <label for="position_id" class="form-label">Position <span class="text-danger">*</span></label>
                         <select class="form-select @error('position_id') is-invalid @enderror" 
-                                id="position_id" name="position_id">
+                                id="position_id" name="position_id" required>
                             <option value="">Sélectionner une position</option>
                             @foreach($positions as $position)
                                 <option value="{{ $position->id }}" 
@@ -67,7 +92,10 @@
                                         data-tablette="{{ $position->tablette->nom }}"
                                         data-travee="{{ $position->tablette->travee->nom }}"
                                         data-salle="{{ $position->tablette->travee->salle->nom }}"
-                                        data-organisme="{{ $position->tablette->travee->salle->organisme->nom_org }}">
+                                        data-organisme="{{ $position->tablette->travee->salle->organisme->nom_org }}"
+                                        @if(!$position->vide && $position->id != $boite->position_id)
+                                            data-occupied="true"
+                                        @endif>
                                     {{ $position->full_path }}
                                     @if(!$position->vide && $position->id != $boite->position_id)
                                         (Occupée)
@@ -115,43 +143,11 @@
                         </p>
                     </div>
                     
-                    <!-- Dates -->
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="date_archivage" class="form-label">Date d'archivage <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control @error('date_archivage') is-invalid @enderror" 
-                                   id="date_archivage" name="date_archivage" 
-                                   value="{{ old('date_archivage', $boite->date_archivage->format('Y-m-d')) }}" required>
-                            @error('date_archivage')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="date_elimination" class="form-label">Date d'élimination prévue</label>
-                            <input type="date" class="form-control @error('date_elimination') is-invalid @enderror" 
-                                   id="date_elimination" name="date_elimination" 
-                                   value="{{ old('date_elimination', $boite->date_elimination ? $boite->date_elimination->format('Y-m-d') : '') }}">
-                            @error('date_elimination')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-                    
-                    <!-- Description -->
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control @error('description') is-invalid @enderror" 
-                                  id="description" name="description" rows="3">{{ old('description', $boite->description) }}</textarea>
-                        @error('description')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    
                     <!-- Statut -->
-                    @if($boite->elimine)
+                    @if($boite->detruite)
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            Cette boîte est actuellement marquée comme éliminée
+                            Cette boîte est actuellement marquée comme détruite
                         </div>
                     @endif
                     
@@ -185,8 +181,23 @@
             </div>
             <div class="card-body">
                 <div class="text-center mb-3">
-                    <h2 class="text-primary">{{ $boite->dossiers->count() }}</h2>
-                    <p class="text-muted">Dossiers dans cette boîte</p>
+                    <div class="bg-light p-3 rounded">
+                        <h4 class="text-primary mb-1" id="capaciteDisplay">{{ $boite->capacite }}</h4>
+                        <small class="text-muted">Capacité</small>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <span class="text-muted">Dossiers actuels :</span>
+                    <span class="fw-bold">{{ $boite->nbr_dossiers }}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Taux d'occupation :</span>
+                    <span class="fw-bold">{{ $boite->utilisation_percentage }}%</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Espace restant :</span>
+                    <span class="fw-bold text-success" id="espaceDisponible">{{ $boite->capacite_restante }} dossiers</span>
                 </div>
                 
                 <hr>
@@ -199,15 +210,6 @@
                     <span class="text-muted">Dernière modification :</span>
                     <span class="fw-bold">{{ $boite->updated_at->format('d/m/Y H:i') }}</span>
                 </div>
-                
-                @if($boite->position)
-                    <hr>
-                    
-                    <div class="mb-2">
-                        <span class="text-muted">Position actuelle :</span>
-                        <span class="fw-bold">{{ $boite->position->full_path }}</span>
-                    </div>
-                @endif
             </div>
         </div>
         
@@ -228,22 +230,23 @@
                         </a>
                     @endif
                     
-                    <a href="{{ route('admin.dossiers.create', ['boite_id' => $boite->id]) }}" class="btn btn-success">
-                        <i class="fas fa-plus me-2"></i>
-                        Ajouter un dossier
-                    </a>
+                    @if(!$boite->detruite && $boite->hasSpace())
+                        <a href="{{ route('admin.dossiers.create', ['boite_id' => $boite->id]) }}" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>
+                            Ajouter un dossier
+                        </a>
+                    @endif
                     
-                    @if($boite->elimine)
-                        <a href="{{ route('admin.boites.restore-box', $boite) }}" class="btn btn-outline-success">
+                    @if($boite->detruite)
+                        <button class="btn btn-outline-success" onclick="confirmRestore()">
                             <i class="fas fa-trash-restore me-2"></i>
                             Restaurer la boîte
-                        </a>
+                        </button>
                     @else
-                        <a href="{{ route('admin.boites.destroy-box', $boite) }}" class="btn btn-outline-danger"
-                           onclick="return confirm('Êtes-vous sûr de vouloir marquer cette boîte comme éliminée ?')">
+                        <button class="btn btn-outline-danger" onclick="confirmDestruction()">
                             <i class="fas fa-trash me-2"></i>
-                            Éliminer la boîte
-                        </a>
+                            Détruire la boîte
+                        </button>
                     @endif
                 </div>
             </div>
@@ -262,27 +265,115 @@
                     @foreach($boite->dossiers->sortByDesc('updated_at')->take(3) as $dossier)
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
-                                <strong>{{ $dossier->reference }}</strong>
+                                <strong>{{ $dossier->numero }}</strong>
                                 <br><small class="text-muted">{{ Str::limit($dossier->titre, 20) }}</small>
                             </div>
                             <div>
-                                @if($dossier->elimine)
-                                    <span class="badge bg-secondary">Éliminé</span>
-                                @else
-                                    <span class="badge bg-success">Actif</span>
-                                @endif
+                                <span class="badge bg-{{ $dossier->statut === 'elimine' ? 'secondary' : 'success' }}">
+                                    {{ $dossier->status_display }}
+                                </span>
                             </div>
                         </div>
                     @endforeach
                 </div>
             </div>
         @endif
+
+        <!-- Calcul de capacité -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-calculator me-2"></i>
+                    Calcul de Capacité
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-{{ $boite->utilisation_percentage < 50 ? 'success' : ($boite->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
+                         style="width: {{ $boite->utilisation_percentage }}%"></div>
+                </div>
+                <small class="text-muted">{{ $boite->utilisation_percentage }}% utilisé</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de destruction -->
+<div class="modal fade" id="destructionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer la destruction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir marquer cette boîte comme détruite ?</p>
+                <p class="text-danger"><small>Cette action marquera également tous les dossiers contenus comme éliminés.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="destructionForm" method="POST" action="{{ route('admin.boites.destroy-box', $boite) }}" style="display: none;">
+                    @csrf
+                    @method('PUT')
+                </form>
+                <button type="button" class="btn btn-danger" onclick="document.getElementById('destructionForm').submit()">
+                    Confirmer la destruction
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de restauration -->
+<div class="modal fade" id="restoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer la restauration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir restaurer cette boîte ?</p>
+                <p class="text-success"><small>Cette action restaurera également tous les dossiers contenus.</small></p>
+                @if($boite->position && !$boite->position->vide)
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        La position précédente est maintenant occupée. Vous devrez assigner une nouvelle position.
+                    </div>
+                @endif
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="restoreForm" method="POST" action="{{ route('admin.boites.restore-box', $boite) }}" style="display: none;">
+                    @csrf
+                    @method('PUT')
+                </form>
+                <button type="button" class="btn btn-success" onclick="document.getElementById('restoreForm').submit()">
+                    Confirmer la restauration
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
 
 @push('scripts')
 <script>
+    // Mise à jour du calcul de capacité
+    document.getElementById('capacite').addEventListener('input', function() {
+        const capacite = parseInt(this.value) || 0;
+        const dossiersActuels = {{ $boite->nbr_dossiers }};
+        document.getElementById('capaciteDisplay').textContent = capacite;
+        document.getElementById('espaceDisponible').textContent = Math.max(0, capacite - dossiersActuels) + ' dossiers';
+        
+        // Validation
+        if (capacite < dossiersActuels) {
+            this.setCustomValidity('La capacité ne peut pas être inférieure au nombre de dossiers actuels (' + dossiersActuels + ')');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+
     // Mise à jour des informations de la position sélectionnée
     document.getElementById('position_id').addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
@@ -293,27 +384,36 @@
             document.getElementById('salleInfo').textContent = selectedOption.dataset.salle;
             document.getElementById('organismeInfo').textContent = selectedOption.dataset.organisme;
             
+            // Supprimer l'ancienne alerte si elle existe
+            const existingAlert = document.querySelector('#positionInfo .alert-warning');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
             // Si la position est occupée, afficher un avertissement
-            if (selectedOption.text.includes('Occupée') && selectedOption.value != "{{ $boite->position_id }}") {
+            if (selectedOption.dataset.occupied && selectedOption.value != "{{ $boite->position_id }}") {
                 const alertDiv = document.createElement('div');
                 alertDiv.className = 'alert alert-warning mt-2';
                 alertDiv.innerHTML = `
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Cette position est déjà occupée par une autre boîte
                 `;
-                
-                // Vérifier si l'alerte existe déjà
-                if (!document.querySelector('#positionInfo .alert-warning')) {
-                    document.getElementById('positionInfo').appendChild(alertDiv);
-                }
-            } else {
-                const existingAlert = document.querySelector('#positionInfo .alert-warning');
-                if (existingAlert) {
-                    existingAlert.remove();
-                }
+                document.getElementById('positionInfo').appendChild(alertDiv);
             }
         }
     });
+
+    // Confirmer la destruction
+        function confirmDestruction() {
+        const modal = new bootstrap.Modal(document.getElementById('destructionModal'));
+        modal.show();
+    }
+
+    // Confirmer la restauration
+    function confirmRestore() {
+        const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
+        modal.show();
+    }
 </script>
 @endpush
 
@@ -322,6 +422,16 @@
     .alert-warning {
         background-color: rgba(255,193,7,0.1);
         border-left: 4px solid #ffc107;
+    }
+    
+    .progress {
+        height: 10px;
+        background-color: #e9ecef;
+    }
+    
+    .card-body h4 {
+        font-size: 2rem;
+        font-weight: 700;
     }
 </style>
 @endpush
