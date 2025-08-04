@@ -11,6 +11,10 @@
             Gestion des Travées
         </h1>
         <div class="btn-group">
+            <a href="{{ route('admin.salles.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour 
+            </a>
             <a href="{{ route('admin.travees.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Travée

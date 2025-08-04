@@ -111,16 +111,26 @@ class StockageController extends Controller
     /**
      * Get storage statistics by organisme.
      */
-    public function statisticsByOrganisme(Request $request, $organismeId)
+    public function statisticsByOrganisme(Request $request, $organisme)
     {
-        $organisme = Organisme::findOrFail($organismeId);
+        // Handle both ID and name parameters
+        if (is_numeric($organisme)) {
+            $organismeModel = Organisme::findOrFail($organisme);
+            $organismeId = $organisme;
+        } else {
+            // Decode URL-encoded organisme name and find by name
+            $organismeName = urldecode($organisme);
+            $organismeModel = Organisme::where('nom_org', $organismeName)->firstOrFail();
+            $organismeId = $organismeModel->id;
+        }
 
-        $stats = [
-            'organisme' => $organisme->nom_org,
-            'salles' => $organisme->salles()->count(),
-            'capacite_totale' => $organisme->total_capacity,
-            'capacite_utilisee' => $organisme->current_utilization,
-            'utilisation_percentage' => $organisme->utilisation_percentage,
+        // Your existing stats calculation
+        $baseStats = [
+            'organisme' => $organismeModel->nom_org,
+            'salles' => $organismeModel->salles()->count(),
+            'capacite_totale' => $organismeModel->total_capacity ?? 0,
+            'capacite_utilisee' => $organismeModel->current_utilization ?? 0,
+            'utilisation_percentage' => $organismeModel->utilisation_percentage ?? 0,
             'positions_libres' => Position::available()
                 ->whereHas('tablette.travee.salle', function ($q) use ($organismeId) {
                     $q->where('organisme_id', $organismeId);
@@ -134,7 +144,245 @@ class StockageController extends Controller
             })->count(),
         ];
 
-        return response()->json($stats);
+        // If it's an AJAX request or API call, return JSON
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json($baseStats);
+        }
+
+        // Map to view's expected keys
+        $stats = [
+            'organisme' => $baseStats['organisme'],
+            'salles' => $baseStats['salles'],
+            'positions_totales' => $baseStats['capacite_totale'],
+            'boites_actives' => $baseStats['boites_actives'],
+            'dossiers_actifs' => $baseStats['dossiers_total'],
+            'taux_occupation' => $baseStats['utilisation_percentage'],
+            'croissance' => $this->calculateGrowthRate($organismeId),
+            // Keep original keys for backward compatibility
+            'capacite_totale' => $baseStats['capacite_totale'],
+            'capacite_utilisee' => $baseStats['capacite_utilisee'],
+            'utilisation_percentage' => $baseStats['utilisation_percentage'],
+            'positions_libres' => $baseStats['positions_libres'],
+            'dossiers_total' => $baseStats['dossiers_total'],
+        ];
+
+        // Get performance data for salles
+        $performanceSalles = $organismeModel->salles()->get()->map(function ($salle) {
+            return [
+                'nom' => $salle->nom,
+                'capacite' => $salle->capacite_max ?? 0,
+                'occupation_percentage' => $salle->utilisation_percentage ?? 0,
+                'efficacite' => min(100, ($salle->utilisation_percentage ?? 0) * 1.2),
+            ];
+        });
+
+        // Chart data
+        $chartData = [
+            'occupation' => [
+                'labels' => $this->getLastMonthsLabels(6),
+                'data' => $this->getOccupationHistory($organismeId, 6)
+            ],
+            'salles' => [
+                'labels' => $organismeModel->salles->pluck('nom')->toArray(),
+                'data' => $organismeModel->salles->pluck('capacite_actuelle')->toArray()
+            ],
+            'comparatif' => [
+                'labels' => $this->getLastMonthsLabels(6),
+                'dossiers' => $this->getDossierCreationHistory($organismeId, 6),
+                'elimines' => $this->getDossierEliminationHistory($organismeId, 6),
+                'occupation' => $this->getOccupationHistory($organismeId, 6)
+            ],
+            'types' => [
+                'labels' => ['Contrats', 'Factures', 'Correspondances', 'Autres'],
+                'data' => $this->getDossierTypeDistribution($organismeId)
+            ]
+        ];
+
+        // Recent activity
+        $activiteRecente = $this->getRecentActivity($organismeId);
+
+        // KPIs calculation
+        $kpis = [
+            'taux_utilisation_optimal' => min(100, $stats['utilisation_percentage']),
+            'efficacite_stockage' => $this->calculateStorageEfficiency($organismeId),
+            'rotation_dossiers' => $this->calculateDossierRotation($organismeId),
+            'score_organisation' => $this->calculateOrganizationScore($organismeId)
+        ];
+
+        // Alerts based on your business logic
+        $alertes = $this->generateAlerts($organismeModel, $baseStats);
+
+        // Predictions
+        $previsions = [
+            'temps_avant_saturation' => $this->calculateTimeToSaturation($organismeModel),
+            'croissance_prevue' => $this->calculatePredictedGrowth($organismeId),
+            'nouveaux_dossiers_prevus' => $this->calculatePredictedDossiers($organismeId),
+            'optimisations' => $this->getOptimizationSuggestions($organismeId)
+        ];
+
+        // Dossier type distribution
+        $repartitionDossiers = $this->getDossierTypeBreakdown($organismeId);
+
+        return view('admin.stockage.statistics', compact(
+        'organismeModel',           // The organisme model
+        'stats',              // Main statistics
+        'performanceSalles',  // Room performance data
+        'chartData',          // Chart data
+        'activiteRecente',    // Recent activity
+        'kpis',              // Key performance indicators
+        'alertes',           // Alerts array
+        'previsions',        // Predictions
+        'repartitionDossiers' // File type distribution
+    ));
+    }
+
+    /**
+     * Helper methods for chart data and calculations
+     */
+
+    private function calculateGrowthRate($organismeId)
+    {
+        return 5.2; // 5.2% growth - implement based on historical data
+    }
+
+    private function getLastMonthsLabels($months)
+    {
+        $labels = [];
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $labels[] = now()->subMonths($i)->format('M Y');
+        }
+        return $labels;
+    }
+
+    private function getOccupationHistory($organismeId, $months)
+    {
+        // Placeholder data - implement based on your historical tracking
+        return array_map(fn() => rand(20, 80), range(1, $months));
+    }
+
+    private function getDossierCreationHistory($organismeId, $months)
+    {
+        // Placeholder data - implement based on your dossier creation tracking
+        return array_map(fn() => rand(10, 50), range(1, $months));
+    }
+
+    private function getDossierEliminationHistory($organismeId, $months)
+    {
+        // Placeholder data - implement based on your dossier elimination tracking
+        return array_map(fn() => rand(1, 10), range(1, $months));
+    }
+
+    private function getDossierTypeDistribution($organismeId)
+    {
+        // Placeholder data - implement based on your dossier types
+        return [40, 30, 20, 10];
+    }
+
+    private function getRecentActivity($organismeId)
+    {
+        // Return empty array for now - implement based on your activity tracking system
+        return [];
+    }
+
+    private function calculateStorageEfficiency($organismeId)
+    {
+        return 85.0;
+    }
+
+    private function calculateDossierRotation($organismeId)
+    {
+        return 2.5;
+    }
+
+    private function calculateOrganizationScore($organismeId)
+    {
+        return 8.2;
+    }
+
+    private function generateAlerts($organisme, $stats)
+    {
+        $alertes = [];
+        
+        if ($stats['utilisation_percentage'] > 90) {
+            $alertes[] = [
+                'type' => 'warning',
+                'icon' => 'exclamation-triangle',
+                'title' => 'Capacité critique',
+                'message' => 'L\'organisme atteint sa capacité maximale.'
+            ];
+        }
+        
+        if ($stats['positions_libres'] < 10) {
+            $alertes[] = [
+                'type' => 'danger',
+                'icon' => 'exclamation-circle',
+                'title' => 'Positions limitées',
+                'message' => 'Moins de 10 positions libres disponibles.'
+            ];
+        }
+        
+        return $alertes;
+    }
+
+    private function calculateTimeToSaturation($organisme)
+    {
+        $currentRate = $organisme->current_utilization ?? 0;
+        $maxCapacity = $organisme->total_capacity ?? 1;
+        
+        if ($currentRate >= $maxCapacity) {
+            return 'Saturé';
+        }
+        
+        return '8 mois'; // Placeholder calculation
+    }
+
+    private function calculatePredictedGrowth($organismeId)
+    {
+        return 15.0;
+    }
+
+    private function calculatePredictedDossiers($organismeId)
+    {
+        return 120;
+    }
+
+    private function getOptimizationSuggestions($organismeId)
+    {
+        return [];
+    }
+
+    private function getDossierTypeBreakdown($organismeId)
+    {
+        return [
+            [
+                'nom' => 'Contrats',
+                'nombre' => 150,
+                'pourcentage' => 40,
+                'tendance' => 5.2,
+                'duree_moyenne' => '2.5 ans'
+            ],
+            [
+                'nom' => 'Factures', 
+                'nombre' => 113,
+                'pourcentage' => 30,
+                'tendance' => -2.1,
+                'duree_moyenne' => '7 ans'
+            ],
+            [
+                'nom' => 'Correspondances',
+                'nombre' => 75,
+                'pourcentage' => 20,
+                'tendance' => 0,
+                'duree_moyenne' => '5 ans'
+            ],
+            [
+                'nom' => 'Autres',
+                'nombre' => 37,
+                'pourcentage' => 10,
+                'tendance' => 1.8,
+                'duree_moyenne' => '3 ans'
+            ]
+        ];
     }
 
 

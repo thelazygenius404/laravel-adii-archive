@@ -1,4 +1,3 @@
-{{-- resources/views/admin/salles/index.blade.php --}}
 @extends('layouts.admin')
 
 @section('title', 'Gestion des Salles')
@@ -12,395 +11,383 @@
         </h1>
         <div class="btn-group">
             <a href="{{ route('admin.stockage.index') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>
-                Retour au tableau de bord
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour au tableau de bord
             </a>
-            <a href="{{ route('admin.salles.create') }}" class="btn btn-primary">
+            <a href="{{ route('admin.salles.create') }}" class="btn btn-success">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Salle
             </a>
-        <div class="btn-group" role="group">
-        
-                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="fas fa-cogs me-1"></i>
-                    Actions
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ route('admin.salles.export') }}">
-                        <i class="fas fa-download me-2"></i>Exporter la liste
-                    </a></li>
-                    <li><a class="dropdown-item" href="{{ route('admin.salles.statistics') }}">
-                        <i class="fas fa-chart-bar me-2"></i>Voir les statistiques
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" onclick="bulkAction()">
-                        <i class="fas fa-tasks me-2"></i>Actions groupées
-                    </a></li>
-                </ul>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- Filtres et recherche -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <form method="GET" class="row align-items-end">
-                    <div class="col-md-3">
-                        <label for="search" class="form-label">Recherche</label>
-                        <input type="text" class="form-control" id="search" name="search" 
-                               value="{{ request('search') }}" placeholder="Nom de la salle...">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="organisme" class="form-label">Organisme</label>
-                        <select class="form-select" id="organisme" name="organisme">
-                            <option value="">Tous les organismes</option>
-                            @foreach($organismes as $org)
-                                <option value="{{ $org->id }}" {{ request('organisme') == $org->id ? 'selected' : '' }}>
-                                    {{ $org->nom_org }}
-                                </option>
-                            @endforeach
+<div class="card">
+    <div class="card-body">
+        <!-- Filters and Search -->
+        <div class="row mb-4">
+            <!-- Recherche -->
+            <div class="col-md-3">
+                <form method="GET" class="d-flex">
+                    <input type="text" 
+                           name="search" 
+                           class="form-control me-2" 
+                           placeholder="Rechercher..."
+                           value="{{ request('search') }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    @if(request('search') || request('organisme_id') || request('status'))
+                        <a href="{{ route('admin.salles.index') }}" class="btn btn-outline-secondary ms-2">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    @endif
+                </form>
+            </div>
+            
+            <!-- Filtre par organisme -->
+            <div class="col-md-3">
+                <form method="GET">
+                    @if(request('search'))
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                    @endif
+                    @if(request('status'))
+                        <input type="hidden" name="status" value="{{ request('status') }}">
+                    @endif
+                    <select name="organisme_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tous les organismes</option>
+                        @foreach($organismes as $org)
+                            <option value="{{ $org->id }}" {{ request('organisme_id') == $org->id ? 'selected' : '' }}>
+                                {{ $org->nom_org }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+
+            <!-- Filtre par statut -->
+            <div class="col-md-3">
+                <form method="GET">
+                    @if(request('search'))
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                    @endif
+                    @if(request('organisme_id'))
+                        <input type="hidden" name="organisme_id" value="{{ request('organisme_id') }}">
+                    @endif
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Tous les statuts</option>
+                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actives</option>
+                        <option value="full" {{ request('status') == 'full' ? 'selected' : '' }}>Pleines</option>
+                        <option value="low" {{ request('status') == 'low' ? 'selected' : '' }}>Peu utilisées</option>
+                    </select>
+                </form>
+            </div>
+            
+            <!-- Actions et pagination -->
+            <div class="col-md-3">
+                <div class="d-flex justify-content-end align-items-center gap-2">
+                    <!-- Export -->
+                    <form method="GET" action="{{ route('admin.salles.export') }}">
+                        @if(request('search'))
+                            <input type="hidden" name="search" value="{{ request('search') }}">
+                        @endif
+                        @if(request('organisme_id'))
+                            <input type="hidden" name="organisme_id" value="{{ request('organisme_id') }}">
+                        @endif
+                        @if(request('status'))
+                            <input type="hidden" name="status" value="{{ request('status') }}">
+                        @endif
+                        
+                    </form>
+                    
+                    <!-- Pagination -->
+                    <form method="GET" class="d-flex align-items-center">
+                        @if(request('search'))
+                            <input type="hidden" name="search" value="{{ request('search') }}">
+                        @endif
+                        @if(request('organisme_id'))
+                            <input type="hidden" name="organisme_id" value="{{ request('organisme_id') }}">
+                        @endif
+                        @if(request('status'))
+                            <input type="hidden" name="status" value="{{ request('status') }}">
+                        @endif
+                        <span class="text-nowrap me-1">Afficher</span>
+                        <select name="per_page" class="form-select form-select-sm" style="width: 80px;" onchange="this.form.submit()">
+                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                            <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
                         </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="row mb-4">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <i class="fas fa-home text-primary fa-3x mb-3"></i>
+                        <h3 class="text-primary">{{ $stats['total'] }}</h3>
+                        <p class="text-muted mb-0">Salles Totales</p>
                     </div>
-                    <div class="col-md-2">
-                        <label for="status" class="form-label">Statut</label>
-                        <select class="form-select" id="status" name="status">
-                            <option value="">Tous</option>
-                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
-                            <option value="full" {{ request('status') == 'full' ? 'selected' : '' }}>Pleine</option>
-                            <option value="low" {{ request('status') == 'low' ? 'selected' : '' }}>Peu utilisée</option>
-                        </select>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                        <h3 class="text-success">{{ $stats['actives'] }}</h3>
+                        <p class="text-muted mb-0">Salles Actives</p>
                     </div>
-                    <div class="col-md-2">
-                        <label for="sort" class="form-label">Trier par</label>
-                        <select class="form-select" id="sort" name="sort">
-                            <option value="nom" {{ request('sort') == 'nom' ? 'selected' : '' }}>Nom</option>
-                            <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Date création</option>
-                            <option value="utilisation" {{ request('sort') == 'utilisation' ? 'selected' : '' }}>Utilisation</option>
-                        </select>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <i class="fas fa-percentage text-warning fa-3x mb-3"></i>
+                        <h3 class="text-warning">{{ number_format($stats['utilisation_moyenne'], 1) }}%</h3>
+                        <p class="text-muted mb-0">Utilisation Moyenne</p>
                     </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search me-2"></i>
-                            Filtrer
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <i class="fas fa-map-marker-alt text-info fa-3x mb-3"></i>
+                        <h3 class="text-info">{{ $stats['positions_totales'] }}</h3>
+                        <p class="text-muted mb-0">Positions Totales</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="row mb-3" id="bulk-actions" style="display: none;">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <span id="selected-count">0</span> salle(s) sélectionnée(s)
+                    <div class="btn-group ms-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="showBulkOrganismeModal()">
+                            <i class="fas fa-building me-1"></i>Changer organisme
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="bulkAction('optimize')">
+                            <i class="fas fa-cogs me-1"></i>Optimiser
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="bulkAction('export')">
+                            <i class="fas fa-file-excel me-1"></i>Exporter
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="bulkAction('delete')">
+                            <i class="fas fa-trash me-1"></i>Supprimer
                         </button>
                     </div>
+                    <button type="button" class="btn btn-sm btn-secondary ms-2" onclick="clearSelection()">
+                        Annuler sélection
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Salles Table -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <input type="checkbox" id="select-all" class="form-check-input">
+                        </th>
+                        <th>
+                            <i class="fas fa-home me-1"></i>
+                            Salle
+                        </th>
+                        <th>
+                            <i class="fas fa-building me-1"></i>
+                            Organisme
+                        </th>
+                        <th>
+                            <i class="fas fa-chart-pie me-1"></i>
+                            Capacité
+                        </th>
+                        <th>
+                            <i class="fas fa-percentage me-1"></i>
+                            Utilisation
+                        </th>
+                        <th>
+                            <i class="fas fa-sitemap me-1"></i>
+                            Structure
+                        </th>
+                        <th>
+                            <i class="fas fa-clock me-1"></i>
+                            Dernière activité
+                        </th>
+                        <th width="150">
+                            <i class="fas fa-cogs me-1"></i>
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($salles as $salle)
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input salle-checkbox" value="{{ $salle->id }}">
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <div class="avatar bg-{{ $salle->utilisation_percentage > 80 ? 'danger' : ($salle->utilisation_percentage > 50 ? 'warning' : 'success') }} text-white rounded">
+                                            {{ strtoupper(substr($salle->nom, 0, 2)) }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ $salle->nom }}</div>
+                                        @if($salle->description)
+                                            <small class="text-muted">{{ Str::limit($salle->description, 30) }}</small>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">{{ $salle->organisme->nom_org }}</span>
+                            </td>
+                            <td>
+                                <div class="text-center">
+                                    <strong>{{ $salle->capacite_actuelle }}/{{ $salle->capacite_max }}</strong>
+                                    <br><small class="text-muted">positions</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress me-2" style="width: 100px; height: 8px;">
+                                        <div class="progress-bar bg-{{ $salle->utilisation_percentage < 50 ? 'success' : ($salle->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
+                                            style="width: {{ $salle->utilisation_percentage }}%"></div>
+                                    </div>
+                                    <span class="badge {{ $salle->utilisation_percentage < 50 ? 'bg-success' : ($salle->utilisation_percentage < 80 ? 'bg-warning' : 'bg-danger') }}">
+                                        {{ number_format($salle->utilisation_percentage, 1) }}%
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <span class="badge bg-info">{{ $salle->travees_count }} travée(s)</span>
+                                    <span class="badge bg-secondary">{{ $salle->tablettes_count }} tablette(s)</span>
+                                </div>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ $salle->derniere_activite ? $salle->derniere_activite->diffForHumans() : 'Aucune activité' }}
+                                </small>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ route('admin.salles.show', $salle) }}" 
+                                       class="btn btn-sm btn-outline-info" 
+                                       title="Voir détails">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ route('admin.salles.edit', $salle) }}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{{ route('admin.stockage.hierarchy') }}?salle={{ $salle->id }}" 
+                                       class="btn btn-sm btn-outline-success" 
+                                       title="Structure">
+                                        <i class="fas fa-sitemap"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger" 
+                                            title="Supprimer"
+                                            onclick="confirmDelete('{{ $salle->id }}', '{{ $salle->nom }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-home fa-3x mb-3"></i>
+                                    <p class="mb-0">Aucune salle trouvée</p>
+                                    @if(request('search') || request('organisme_id') || request('status'))
+                                        <p class="mt-2">
+                                            <a href="{{ route('admin.salles.index') }}" class="btn btn-sm btn-outline-primary">
+                                                Voir toutes les salles
+                                            </a>
+                                        </p>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if($salles->hasPages())
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-muted">
+                    Affichage de {{ $salles->firstItem() }} à {{ $salles->lastItem() }} sur {{ $salles->total() }} résultats
+                </div>
+                <div>
+                   {{ $salles->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
+                </div>
+            </div>
+        @endif
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer la suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer la salle <strong id="salleNom"></strong> ?</p>
+                <p class="text-danger"><small>Cette action supprimera également toutes les structures de stockage associées et est irréversible.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="deleteForm" method="POST" class="d-inline">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Statistiques rapides -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-primary">
-            <div class="card-body text-center">
-                <i class="fas fa-home text-primary fa-3x mb-3"></i>
-                <h3 class="text-primary">{{ $stats['total'] }}</h3>
-                <p class="text-muted mb-0">Salles Totales</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
-                <h3 class="text-success">{{ $stats['actives'] }}</h3>
-                <p class="text-muted mb-0">Salles Actives</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <i class="fas fa-percentage text-warning fa-3x mb-3"></i>
-                <h3 class="text-warning">{{ number_format($stats['utilisation_moyenne'], 1) }}%</h3>
-                <p class="text-muted mb-0">Utilisation Moyenne</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-info">
-            <div class="card-body text-center">
-                <i class="fas fa-map-marker-alt text-info fa-3x mb-3"></i>
-                <h3 class="text-info">{{ $stats['positions_totales'] }}</h3>
-                <p class="text-muted mb-0">Positions Totales</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Liste des salles -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-list me-2"></i>
-                    Liste des Salles
-                    <span class="badge bg-primary ms-2">{{ $salles->total() }}</span>
-                </h5>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary active" onclick="toggleView('table')">
-                        <i class="fas fa-table"></i>
-                    </button>
-                    <button class="btn btn-outline-primary" onclick="toggleView('grid')">
-                        <i class="fas fa-th"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Vue tableau -->
-                <div id="tableView">
-                    @if($salles->count() > 0)
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>
-                                            <input type="checkbox" class="form-check-input" id="selectAll">
-                                        </th>
-                                        <th>Salle</th>
-                                        <th>Organisme</th>
-                                        <th>Capacité</th>
-                                        <th>Utilisation</th>
-                                        <th>Structure</th>
-                                        <th>Dernière activité</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($salles as $salle)
-                                        <tr>
-                                            <td>
-                                                <input type="checkbox" class="form-check-input salle-checkbox" value="{{ $salle->id }}">
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="me-3">
-                                                        <div class="avatar bg-{{ $salle->utilisation_percentage > 80 ? 'danger' : ($salle->utilisation_percentage > 50 ? 'warning' : 'success') }} text-white rounded">
-                                                            {{ strtoupper(substr($salle->nom, 0, 2)) }}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0">{{ $salle->nom }}</h6>
-                                                        @if($salle->description)
-                                                            <small class="text-muted">{{ Str::limit($salle->description, 30) }}</small>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-primary">{{ $salle->organisme->nom_org }}</span>
-                                            </td>
-                                            <td>
-                                                <div class="text-center">
-                                                    <strong>{{ $salle->capacite_actuelle }}/{{ $salle->capacite_max }}</strong>
-                                                    <br><small class="text-muted">positions</small>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="progress me-2" style="width: 100px; height: 8px;">
-                                                        <div class="progress-bar bg-{{ $salle->utilisation_percentage < 50 ? 'success' : ($salle->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
-                                                            style="width: {{ $salle->utilisation_percentage }}%"></div>
-                                                    </div>
-                                                    <small>{{ number_format($salle->utilisation_percentage, 1) }}%</small>
-                                                </div>
-                                                <small class="text-muted">{{ $salle->capacite_actuelle }}/{{ $salle->capacite_max }}</small>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex gap-1">
-                                                    <span class="badge bg-info">{{ $salle->travees_count }} travée(s)</span>
-                                                    <span class="badge bg-secondary">{{ $salle->tablettes()->count() }} tablette(s)</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <small class="text-muted">
-                                                    {{ $salle->derniere_activite ? $salle->derniere_activite->diffForHumans() : 'Aucune activité' }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="{{ route('admin.salles.show', $salle) }}" 
-                                                       class="btn btn-outline-info" title="Voir">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <a href="{{ route('admin.salles.edit', $salle) }}" 
-                                                       class="btn btn-outline-primary" title="Modifier">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <a href="{{ route('admin.stockage.hierarchy') }}?salle={{ $salle->id }}" 
-                                                       class="btn btn-outline-success" title="Structure">
-                                                        <i class="fas fa-sitemap"></i>
-                                                    </a>
-                                                    <button class="btn btn-outline-danger" 
-                                                            onclick="deleteSalle({{ $salle->id }})" title="Supprimer">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="text-center py-5">
-                            <i class="fas fa-home fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">Aucune salle trouvée</h5>
-                            <p class="text-muted">Commencez par créer votre première salle de stockage.</p>
-                            <a href="{{ route('admin.salles.create') }}" class="btn btn-primary">
-                                <i class="fas fa-plus me-2"></i>
-                                Créer une salle
-                            </a>
-                        </div>
-                    @endif
-                </div>
-
-                <!-- Vue grille -->
-                <div id="gridView" style="display: none;">
-                    @if($salles->count() > 0)
-                        <div class="row">
-                            @foreach($salles as $salle)
-                                <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
-                                    <div class="card h-100 salle-card">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center mb-3">
-                                                <div class="avatar bg-{{ $salle->utilisation_percentage > 80 ? 'danger' : ($salle->utilisation_percentage > 50 ? 'warning' : 'success') }} text-white rounded me-3">
-                                                    {{ strtoupper(substr($salle->nom, 0, 2)) }}
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <h6 class="card-title mb-0">{{ $salle->nom }}</h6>
-                                                    <small class="text-muted">{{ $salle->organisme->nom_org }}</small>
-                                                </div>
-                                                <div class="dropdown">
-                                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
-                                                        <i class="fas fa-ellipsis-v"></i>
-                                                    </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="{{ route('admin.salles.show', $salle) }}">
-                                                            <i class="fas fa-eye me-2"></i>Voir
-                                                        </a></li>
-                                                        <li><a class="dropdown-item" href="{{ route('admin.salles.edit', $salle) }}">
-                                                            <i class="fas fa-edit me-2"></i>Modifier
-                                                        </a></li>
-                                                        <li><hr class="dropdown-divider"></li>
-                                                        <li><a class="dropdown-item text-danger" href="#" onclick="deleteSalle({{ $salle->id }})">
-                                                            <i class="fas fa-trash me-2"></i>Supprimer
-                                                        </a></li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            
-                                            @if($salle->description)
-                                                <p class="card-text text-muted mb-3">{{ Str::limit($salle->description, 60) }}</p>
-                                            @endif
-                                            
-                                            <div class="mb-3">
-                                                <div class="d-flex justify-content-between mb-1">
-                                                    <small class="text-muted">Utilisation</small>
-                                                    <small>{{ number_format($salle->utilisation_percentage, 1) }}%</small>
-                                                </div>
-                                                <div class="progress" style="height: 6px;">
-                                                    <div class="progress-bar bg-{{ $salle->utilisation_percentage < 50 ? 'success' : ($salle->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
-                                                         style="width: {{ $salle->utilisation_percentage }}%"></div>
-                                                </div>
-                                            </div>
-
-                                            <div class="row text-center">
-                                                <div class="col-4">
-                                                    <div class="border-end">
-                                                        <h6 class="mb-0">{{ $salle->travees_count }}</h6>
-                                                        <small class="text-muted">Travées</small>
-                                                    </div>
-                                                </div>
-                                                <div class="col-4">
-                                                    <div class="border-end">
-                                                        <h6 class="mb-0">{{ $salle->tablettes_count }}</h6>
-                                                        <small class="text-muted">Tablettes</small>
-                                                    </div>
-                                                </div>
-                                                <div class="col-4">
-                                                    <h6 class="mb-0">{{ $salle->capacite_actuelle }}</h6>
-                                                    <small class="text-muted">Occupées</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="card-footer bg-transparent">
-                                            <div class="d-flex gap-2">
-                                                <a href="{{ route('admin.salles.show', $salle) }}" class="btn btn-sm btn-outline-primary flex-fill">
-                                                    <i class="fas fa-eye me-1"></i>Voir
-                                                </a>
-                                                <a href="{{ route('admin.stockage.hierarchy') }}?salle={{ $salle->id }}" class="btn btn-sm btn-outline-success flex-fill">
-                                                    <i class="fas fa-sitemap me-1"></i>Structure
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-5">
-                            <i class="fas fa-home fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">Aucune salle trouvée</h5>
-                            <p class="text-muted">Commencez par créer votre première salle de stockage.</p>
-                            <a href="{{ route('admin.salles.create') }}" class="btn btn-primary">
-                                <i class="fas fa-plus me-2"></i>
-                                Créer une salle
-                            </a>
-                        </div>
-                    @endif
-                </div>
-
-                <!-- Pagination -->
-                @if($salles->hasPages())
-                    <div class="d-flex justify-content-center mt-4">
-                        {{ $salles->appends(request()->query())->links() }}
-                    </div>
-                @endif
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal pour actions groupées -->
-<div class="modal fade" id="bulkActionModal" tabindex="-1">
+<!-- Bulk Organisme Modal -->
+<div class="modal fade" id="bulkOrganismeModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-tasks me-2"></i>
-                    Actions Groupées
-                </h5>
+                <h5 class="modal-title">Changer l'organisme</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="bulkActionForm">
+                <form id="bulkOrganismeForm">
                     <div class="mb-3">
-                        <label for="bulkAction" class="form-label">Action à effectuer</label>
-                        <select class="form-select" id="bulkAction" name="action" required>
-                            <option value="">Choisir une action...</option>
-                            <option value="export">Exporter les salles sélectionnées</option>
-                            <option value="update_organisme">Changer d'organisme</option>
-                            <option value="optimize">Optimiser l'organisation</option>
-                            <option value="delete">Supprimer les salles sélectionnées</option>
+                        <label for="bulk_organisme_id" class="form-label">Nouvel organisme</label>
+                        <select id="bulk_organisme_id" name="organisme_id" class="form-select" required>
+                            <option value="">Sélectionner un organisme</option>
+                            @foreach($organismes as $org)
+                                <option value="{{ $org->id }}">{{ $org->nom_org }}</option>
+                            @endforeach
                         </select>
                     </div>
-                    <div id="additionalFields"></div>
-                    <input type="hidden" id="selectedSalles" name="salles">
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="submitBulkAction()">
-                    <i class="fas fa-check me-2"></i>
-                    Exécuter
-                </button>
+                <button type="button" class="btn btn-primary" onclick="executeBulkOrganisme()">Modifier</button>
             </div>
         </div>
     </div>
@@ -409,147 +396,94 @@
 
 @push('scripts')
 <script>
-    // Basculer entre les vues
-    function toggleView(view) {
-        const tableView = document.getElementById('tableView');
-        const gridView = document.getElementById('gridView');
-        const buttons = document.querySelectorAll('[onclick*="toggleView"]');
-        
-        buttons.forEach(btn => btn.classList.remove('active'));
-        
-        if (view === 'grid') {
-            tableView.style.display = 'none';
-            gridView.style.display = 'block';
-            document.querySelector('[onclick="toggleView(\'grid\')"]').classList.add('active');
-        } else {
-            tableView.style.display = 'block';
-            gridView.style.display = 'none';
-            document.querySelector('[onclick="toggleView(\'table\')"]').classList.add('active');
-        }
-    }
+    let selectedSalles = [];
 
-    // Sélection multiple
-   document.getElementById('selectAll').addEventListener('change', function() {
+    // Select all checkbox
+    document.getElementById('select-all').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.salle-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
+        updateSelection();
     });
 
-    // Actions groupées
-    function bulkAction() {
-        const selected = Array.from(document.querySelectorAll('.salle-checkbox:checked')).map(cb => cb.value);
+    // Individual checkboxes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('salle-checkbox')) {
+            updateSelection();
+        }
+    });
+
+    function updateSelection() {
+        const checkboxes = document.querySelectorAll('.salle-checkbox:checked');
+        selectedSalles = Array.from(checkboxes).map(cb => cb.value);
         
-        if (selected.length === 0) {
+        const count = selectedSalles.length;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('bulk-actions').style.display = count > 0 ? 'block' : 'none';
+        
+        // Update select all checkbox
+        const allCheckboxes = document.querySelectorAll('.salle-checkbox');
+        const selectAllCheckbox = document.getElementById('select-all');
+        selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+        selectAllCheckbox.checked = count === allCheckboxes.length;
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.salle-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('select-all').checked = false;
+        updateSelection();
+    }
+
+    function bulkAction(action) {
+        if (selectedSalles.length === 0) {
+            alert('Veuillez sélectionner au moins une salle.');
+            return;
+        }
+
+        if (action === 'delete') {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer ${selectedSalles.length} salle(s) ? Cette action supprimera également toutes les structures de stockage associées.`)) {
+                executeBulkAction('delete', { confirm: '1' });
+            }
+        } else if (action === 'export') {
+            executeBulkAction('export');
+        } else if (action === 'optimize') {
+            if (confirm(`Optimiser ${selectedSalles.length} salle(s) ? Cette action recalculera les capacités actuelles.`)) {
+                executeBulkAction('optimize');
+            }
+        }
+    }
+
+    function showBulkOrganismeModal() {
+        if (selectedSalles.length === 0) {
             alert('Veuillez sélectionner au moins une salle.');
             return;
         }
         
-        // CORRECTION : Stocker directement le tableau au lieu de JSON.stringify
-        document.getElementById('selectedSalles').value = selected.join(',');
-        const modal = new bootstrap.Modal(document.getElementById('bulkActionModal'));
+        const modal = new bootstrap.Modal(document.getElementById('bulkOrganismeModal'));
         modal.show();
     }
 
-    // Changer les champs additionnels selon l'action
-    document.addEventListener('DOMContentLoaded', function() {
-        const bulkActionSelect = document.getElementById('bulkAction');
-        if (bulkActionSelect) {
-            bulkActionSelect.addEventListener('change', function() {
-                const additionalFields = document.getElementById('additionalFields');
-                additionalFields.innerHTML = '';
-                
-                switch(this.value) {
-                    case 'update_organisme':
-                        additionalFields.innerHTML = `
-                            <div class="mb-3">
-                                <label for="newOrganisme" class="form-label">Nouvel organisme <span class="text-danger">*</span></label>
-                                <select class="form-select" id="newOrganisme" name="organisme_id" required>
-                                    <option value="">Choisir un organisme...</option>
-                                    @foreach($organismes as $org)
-                                        <option value="{{ $org->id }}">{{ $org->nom_org }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        `;
-                        break;
-                    case 'delete':
-                        additionalFields.innerHTML = `
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>Attention !</strong> Cette action est irréversible et supprimera également toutes les structures de stockage associées.
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="confirmDelete" name="confirm" value="1" required>
-                                <label class="form-check-label" for="confirmDelete">
-                                    Je comprends que cette action est irréversible
-                                </label>
-                            </div>
-                        `;
-                        break;
-                }
-            });
+    function executeBulkOrganisme() {
+        const organismeId = document.getElementById('bulk_organisme_id').value;
+        if (!organismeId) {
+            alert('Veuillez sélectionner un organisme.');
+            return;
         }
-    });
 
-    // Soumettre l'action groupée - VERSION CORRIGÉE POUR ERREUR 422
-    function submitBulkAction() {
-        const form = document.getElementById('bulkActionForm');
-        const formData = new FormData(form);
+        const modal = bootstrap.Modal.getInstance(document.getElementById('bulkOrganismeModal'));
+        modal.hide();
         
-        // Validation côté client
-        const action = formData.get('action');
-        if (!action) {
-            alert('Veuillez sélectionner une action.');
-            return;
-        }
-        
-        const salles = formData.get('salles');
-        if (!salles) {
-            alert('Aucune salle sélectionnée.');
-            return;
-        }
-        
-        // Validation spécifique pour certaines actions
-        if (action === 'update_organisme') {
-            const organismeId = formData.get('organisme_id');
-            if (!organismeId) {
-                alert('Veuillez sélectionner un organisme.');
-                return;
-            }
-        }
-        
-        if (action === 'delete') {
-            const confirm = formData.get('confirm');
-            if (!confirm) {
-                alert('Veuillez confirmer la suppression.');
-                return;
-            }
-        }
-        
-        // Désactiver le bouton pendant le traitement
-        const submitBtn = document.querySelector('#bulkActionModal .btn-primary');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
-        
-        // CORRECTION : Préparer les données correctement
+        executeBulkAction('update_organisme', { organisme_id: organismeId });
+    }
+
+    function executeBulkAction(action, data = {}) {
         const requestData = {
             action: action,
-            salle_ids: salles.split(','), // Convertir en tableau
+            salle_ids: selectedSalles,
+            ...data
         };
-        
-        // Ajouter les champs spécifiques selon l'action
-        if (action === 'update_organisme') {
-            requestData.organisme_id = formData.get('organisme_id');
-        }
-        
-        if (action === 'delete') {
-            requestData.confirm = formData.get('confirm');
-        }
-        
-        console.log('Données envoyées:', requestData);
-        
+
         fetch('{{ route("admin.salles.bulk-action") }}', {
             method: 'POST',
             headers: {
@@ -560,17 +494,13 @@
             body: JSON.stringify(requestData)
         })
         .then(response => {
-            console.log('Status:', response.status);
-            
             if (!response.ok) {
-                // Gérer les erreurs spécifiques
                 return response.json().then(errorData => {
-                    console.log('Erreur de validation:', errorData);
                     throw new Error(errorData.message || `Erreur HTTP: ${response.status}`);
                 });
             }
             
-            // Si c'est un export, gérer le téléchargement
+            // Handle export downloads
             if (action === 'export') {
                 return response.blob().then(blob => {
                     const url = window.URL.createObjectURL(blob);
@@ -589,18 +519,12 @@
             return response.json();
         })
         .then(data => {
-            console.log('Réponse:', data);
-            
             if (data.success) {
-                // Fermer le modal
-                bootstrap.Modal.getInstance(document.getElementById('bulkActionModal')).hide();
-                
-                // Afficher le message de succès
                 if (data.message) {
                     alert(data.message);
                 }
                 
-                // Recharger la page sauf pour l'export
+                // Reload page except for export
                 if (action !== 'export') {
                     location.reload();
                 }
@@ -609,68 +533,18 @@
             }
         })
         .catch(error => {
-            console.error('Erreur complète:', error);
-            alert('Erreur lors de l\'exécution de l\'action: ' + error.message);
-        })
-        .finally(() => {
-            // Réactiver le bouton
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        });
-    }
-
-    // Supprimer une salle
-   function deleteSalle(id) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette salle ? Cette action supprimera également toutes les structures de stockage associées.')) {
-        // Créer un formulaire pour la suppression
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `{{ route('admin.salles.index') }}/${id}`;
-        form.innerHTML = `
-            @csrf
-            @method('DELETE')
-        `;
-        document.body.appendChild(form);
-        form.submit();
-        
-        // Alternative avec AJAX (optionnelle)
-        /*
-        fetch(`{{ route('admin.salles.index') }}/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Afficher un message de succès
-                alert(data.message);
-                location.reload();
-            } else {
-                alert('Erreur: ' + data.message);
-            }
-        })
-        .catch(error => {
             console.error('Erreur:', error);
-            alert('Erreur lors de la suppression');
+            alert('Erreur lors de l\'exécution de l\'action: ' + error.message);
         });
-        */
     }
-}
 
-    // Recherche en temps réel
-    let searchTimeout;
-    document.getElementById('search').addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            if (this.value.length >= 2 || this.value.length === 0) {
-                this.form.submit();
-            }
-        }, 500);
-    });
+    function confirmDelete(salleId, salleNom) {
+        document.getElementById('salleNom').textContent = salleNom;
+        document.getElementById('deleteForm').action = '{{ route("admin.salles.index") }}/' + salleId;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    }
 </script>
 @endpush
 
@@ -686,21 +560,8 @@
         font-size: 0.875rem;
     }
 
-    .salle-card {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .salle-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
     .progress {
         background-color: #e9ecef;
-    }
-
-    .card-body .border-end:last-child {
-        border-right: none !important;
     }
 
     .table th {
@@ -710,19 +571,23 @@
         background-color: #f8f9fa;
     }
 
-    .btn-group .btn.active {
-        background-color: var(--bs-primary);
-        color: white;
-        border-color: var(--bs-primary);
-    }
-
-    .card-footer {
-        padding: 0.75rem 1.25rem;
-    }
-
-    .alert-danger {
+    .alert-info {
         border: none;
         border-radius: 8px;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .btn-group .btn {
+        border-radius: 0.375rem;
+        margin-right: 2px;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
     }
 </style>
 @endpush

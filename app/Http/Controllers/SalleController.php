@@ -27,8 +27,40 @@ class SalleController extends Controller
             $query->where('organisme_id', $request->organisme_id);
         }
 
+        // Filter by status
+        if ($request->filled('status')) {
+            switch ($request->status) {
+                case 'active':
+                    $query->where('capacite_actuelle', '>', 0);
+                    break;
+                case 'full':
+                    $query->whereRaw('capacite_actuelle >= capacite_max');
+                    break;
+                case 'low':
+                    $query->whereRaw('(capacite_actuelle / capacite_max) * 100 < 30')
+                          ->where('capacite_max', '>', 0);
+                    break;
+            }
+        }
+
+        // Sorting
+        $sortField = $request->get('sort', 'nom');
+        $sortDirection = $request->get('direction', 'asc');
+
+        switch ($sortField) {
+            case 'created_at':
+                $query->orderBy('created_at', $sortDirection);
+                break;
+            case 'utilisation':
+                $query->orderByRaw("(capacite_actuelle / NULLIF(capacite_max, 0)) $sortDirection");
+                break;
+            case 'nom':
+            default:
+                $query->orderBy('nom', $sortDirection);
+                break;
+        }
+
         $salles = $query->withCount(['travees', 'tablettes'])
-                    ->orderBy('nom')
                     ->paginate($request->get('per_page', 15))
                     ->withQueryString();
 
@@ -205,6 +237,21 @@ class SalleController extends Controller
 
         if ($request->filled('organisme_id')) {
             $query->where('organisme_id', $request->organisme_id);
+        }
+
+        if ($request->filled('status')) {
+            switch ($request->status) {
+                case 'active':
+                    $query->where('capacite_actuelle', '>', 0);
+                    break;
+                case 'full':
+                    $query->whereRaw('capacite_actuelle >= capacite_max');
+                    break;
+                case 'low':
+                    $query->whereRaw('(capacite_actuelle / capacite_max) * 100 < 30')
+                          ->where('capacite_max', '>', 0);
+                    break;
+            }
         }
 
         $salles = $query->withCount('travees')->orderBy('nom')->get();

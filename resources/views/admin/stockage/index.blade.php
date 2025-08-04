@@ -188,7 +188,7 @@
                                                class="btn btn-outline-info">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ route('admin.stockage.statistics', ['organisme' => $utilisation['nom']]) }}" 
+                                            <a href="{{ route('admin.stockage.statistics', ['organisme' => $utilisation['id']]) }}" 
                                                class="btn btn-outline-primary">
                                                 <i class="fas fa-chart-line"></i>
                                             </a>

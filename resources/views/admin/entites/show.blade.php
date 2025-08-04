@@ -539,7 +539,7 @@
     
     // Auto-refresh statistics every 30 seconds
     setTimeout(function() {
-        fetch(`{{ route('api.entites.statistics', $entite) }}`)
+        fetch(`{{ route('admin.api.entites.statistics', $entite) }}`)
             .then(response => response.json())
             .then(data => {
                 // Update statistics if needed

@@ -11,6 +11,10 @@
             Gestion des Tablettes
         </h1>
         <div class="btn-group">
+            <a href="{{ route('admin.travees.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour 
+            </a>
             <a href="{{ route('admin.tablettes.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Tablette
@@ -298,9 +302,24 @@
     }
 
     // Exporter les données
-    function exportData() {
+   function exportData() {
+        // CORRECTION: Use the same method as salle index
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = '{{ route("admin.tablettes.export") }}';
+        
+        // Add current filter parameters
         const params = new URLSearchParams(window.location.search);
-        window.location.href = `{{ route('admin.tablettes.export') }}?${params.toString()}`;
+        params.forEach((value, key) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
     }
 
     // CORRECTION 4: Actions groupées complètement refaites
@@ -393,135 +412,70 @@
     }
 
     // CORRECTION 8: Fonction d'exécution corrigée
-    function executeTablettesBulkAction() {
-        const action = document.getElementById('bulkActionSelect').value;
-        const newTraveeId = document.getElementById('newTraveeId') ? document.getElementById('newTraveeId').value : null;
-        
-        if (!action) {
-            alert('Veuillez sélectionner une action.');
-            return;
-        }
-        
-        if (action === 'move' && !newTraveeId) {
-            alert('Veuillez sélectionner une travée de destination.');
-            return;
-        }
-        
-        // Désactiver le bouton pendant traitement
-        const executeBtn = document.getElementById('executeBulkBtn');
-        executeBtn.disabled = true;
-        executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
-        
-        const formData = new FormData();
-        formData.append('action', action);
-        formData.append('tablette_ids', JSON.stringify(selectedTablettes));
-        if (newTraveeId) {
-            formData.append('new_travee_id', newTraveeId);
-        }
-        
-        // DEBUG DÉTAILLÉ
-        console.log('=== DEBUG REQUÊTE TABLETTES ===');
-        console.log('Action:', action);
-        console.log('Tablettes sélectionnées:', selectedTablettes);
-        console.log('Nouvelle travée ID:', newTraveeId);
-        console.log('FormData entries:');
-        for (let [key, value] of formData.entries()) {
-            console.log(`${key}: ${value}`);
-        }
-        
-        fetch('{{ route("admin.tablettes.bulk-action") }}', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
-            },
-            body: formData
-        })
-        .then(response => {
-            console.log('=== RÉPONSE SERVEUR TABLETTES ===');
-            console.log('Status:', response.status);
-            console.log('Headers:', response.headers);
-            
-            // IMPORTANT : Lire la réponse même en cas d'erreur 422
-            return response.text().then(text => {
-                console.log('Réponse brute:', text);
-                
-                try {
-                    const data = JSON.parse(text);
-                    console.log('Données JSON:', data);
-                    
-                    if (response.ok) {
-                        if (data.success) {
-                            alert(data.message);
-                            
-                            // Afficher les résultats détaillés si disponibles (pour optimize)
-                            if (data.results && Array.isArray(data.results)) {
-                                let detailsHtml = '<div class="mt-3"><h6>Détails de l\'optimisation:</h6><ul>';
-                                data.results.forEach(result => {
-                                    detailsHtml += `<li><strong>${result.tablette}</strong>: ${result.positions_total} positions, ${result.utilisation}% d'utilisation (${result.efficacite})</li>`;
-                                });
-                                detailsHtml += '</ul></div>';
-                                document.querySelector('#bulkActionsModal .modal-body').insertAdjacentHTML('beforeend', detailsHtml);
-                                
-                                // Ne pas recharger automatiquement pour permettre de voir les résultats
-                                setTimeout(() => {
-                                    if (confirm('Voulez-vous recharger la page pour voir les modifications ?')) {
-                                        window.location.reload();
-                                    }
-                                }, 2000);
-                            } else if (action !== 'export') {
-                                window.location.reload();
-                            }
-                        } else {
-                            alert('Erreur: ' + data.message);
-                        }
-                    } else {
-                        // ERREUR 422 - Afficher les détails de validation
-                        if (data.errors) {
-                            console.log('Erreurs de validation:', data.errors);
-                            let errorMessage = 'Erreurs de validation:\n';
-                            for (const [field, messages] of Object.entries(data.errors)) {
-                                errorMessage += `- ${field}: ${messages.join(', ')}\n`;
-                            }
-                            alert(errorMessage);
-                        } else {
-                            alert('Erreur de validation: ' + (data.message || 'Erreur inconnue'));
-                        }
-                    }
-                } catch (e) {
-                    console.error('Erreur parsing JSON:', e);
-                    alert('Réponse invalide du serveur: ' + text);
-                }
-            });
-        })
-        .catch(error => {
-            console.error('=== ERREUR RÉSEAU TABLETTES ===');
-            console.error('Erreur:', error);
-            alert('Erreur réseau: ' + error.message);
-        })
-        .finally(() => {
-            // Réactiver le bouton
-            executeBtn.disabled = false;
-            executeBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Exécuter';
-            
-            // Fermer le modal si pas d'erreur ou si export
-            const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
-            if (modal && action === 'export') {
-                modal.hide();
-            }
-        });
+    // Replace the executeTablettesBulkAction function in your Blade template with this corrected version:
+
+ function executeTablettesBulkAction() {
+    const action = document.getElementById('bulkActionSelect').value;
+    const newTraveeId = document.getElementById('newTraveeId') ? document.getElementById('newTraveeId').value : null;
+    if (!action) {
+        alert('Veuillez sélectionner une action.');
+        return;
+    }
+    if (action === 'move' && !newTraveeId) {
+        alert('Veuillez sélectionner une travée de destination.');
+        return;
+    }
+    // Désactiver le bouton pendant traitement
+    const executeBtn = document.getElementById('executeBulkBtn');
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
+
+    const formData = new FormData();
+    formData.append('action', action);
+    formData.append('tablette_ids', JSON.stringify(selectedTablettes));
+    if (newTraveeId) {
+        formData.append('new_travee_id', newTraveeId);
     }
 
-    // Recherche en temps réel
-    let searchTimeout;
-    document.getElementById('search').addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            if (this.value.length >= 2 || this.value.length === 0) {
-                this.form.submit();
+    fetch('{{ route("admin.tablettes.bulk-action") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: formData
+    })
+    .then(response => {
+        if (action === 'export') {
+            // Redirect to download URL directly
+            window.location.href = response.url;
+        } else {
+            return response.json();
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            if (action !== 'export') {
+                alert(data.message);
+                // Reload if needed
+                if (action !== 'export') {
+                    window.location.reload();
+                }
             }
-        }, 500);
+        } else {
+            alert('Erreur: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de l\'exécution de l\'action: ' + error.message);
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Exécuter';
     });
+}
 
     // CORRECTION 9: Debug des routes
     console.log('Route bulk-action:', '{{ route("admin.tablettes.bulk-action") }}');

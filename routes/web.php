@@ -108,9 +108,13 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/search', [StockageController::class, 'search'])->name('search');
         Route::get('/optimize', [StockageController::class, 'optimizeStorage'])->name('optimize');
         Route::get('/export', [StockageController::class, 'exportReport'])->name('export');
-        Route::get('/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('statistics');
+        Route::get('/export-report', [StockageController::class, 'exportReport'])->name('exportReport');
+        Route::get('/statistics/{organisme}', [StockageController::class, 'statisticsByOrganisme'])->name('statistics')
+            ->where('organisme', '.*'); // Allow any character including spaces and special chars
         Route::get('/positions/available', [StockageController::class, 'findAvailablePositions'])->name('positions.available');
         Route::post('/positions/bulk-create', [StockageController::class, 'bulkCreatePositions'])->name('positions.bulk-create');
+        
+
     });
     
     // Physical storage entities
@@ -135,7 +139,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/tablettes/bulk-action', [TabletteController::class, 'bulkAction'])->name('tablettes.bulk-action');
     
     // Position management
-    
     Route::resource('positions', PositionController::class);
     Route::prefix('positions')->name('positions.')->group(function () {
         Route::get('/tablette/{tablette}', [PositionController::class, 'byTablette'])->name('by-tablette');
@@ -145,6 +148,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         Route::get('/statistics', [PositionController::class, 'statistics'])->name('statistics');
         Route::post('/bulk-action', [PositionController::class, 'bulkAction'])->name('bulk-action');
          Route::post('/generate-for-travee', [PositionController::class, 'generateForTravee'])->name('generate-for-travee');
+         
     });
     
     // Box and folder management

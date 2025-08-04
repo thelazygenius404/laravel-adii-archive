@@ -10,6 +10,10 @@
             Gestion des Positions
         </h1>
         <div class="btn-group">
+            <a href="{{ route('admin.tablettes.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour
+            </a>
             <a href="{{ route('admin.positions.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Position
