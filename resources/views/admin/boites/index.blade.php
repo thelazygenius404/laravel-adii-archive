@@ -10,6 +10,10 @@
             Gestion des Boîtes
         </h1>
         <div class="btn-group">
+            <a href="{{ route('admin.positions.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour
+            </a>
             <a href="{{ route('admin.boites.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Boîte
@@ -43,7 +47,7 @@
                     <div class="col-md-3">
                         <label for="search" class="form-label">Recherche</label>
                         <input type="text" class="form-control" id="search" name="search" 
-                               value="{{ request('search') }}" placeholder="Numéro, référence...">
+                               value="{{ request('search') }}" placeholder="Numéro, code...">
                     </div>
                     <div class="col-md-2">
                         <label for="position_id" class="form-label">Position</label>
@@ -55,13 +59,13 @@
                                 </option>
                             @endforeach
                         </select>
-                    </div>
+                    </div> 
                     <div class="col-md-2">
                         <label for="status" class="form-label">Statut</label>
                         <select class="form-select" id="status" name="status">
                             <option value="">Tous</option>
                             <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actives</option>
-                            <option value="eliminated" {{ request('status') == 'eliminated' ? 'selected' : '' }}>Éliminées</option>
+                            <option value="destroyed" {{ request('status') == 'destroyed' ? 'selected' : '' }}>Détruites</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -103,7 +107,7 @@
         <div class="card border-success">
             <div class="card-body text-center">
                 <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
-                <h3 class="text-success">{{ $boites->where('elimine', false)->count() }}</h3>
+                <h3 class="text-success">{{ $boites->where('detruite', false)->count() }}</h3>
                 <p class="text-muted mb-0">Boîtes Actives</p>
             </div>
         </div>
@@ -112,8 +116,8 @@
         <div class="card border-warning">
             <div class="card-body text-center">
                 <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
-                <h3 class="text-warning">{{ $boites->where('elimine', true)->count() }}</h3>
-                <p class="text-muted mb-0">Boîtes Éliminées</p>
+                <h3 class="text-warning">{{ $boites->where('detruite', true)->count() }}</h3>
+                <p class="text-muted mb-0">Boîtes Détruites</p>
             </div>
         </div>
     </div>
@@ -138,6 +142,10 @@
                     Liste des Boîtes
                     <span class="badge bg-primary ms-2">{{ $boites->total() }}</span>
                 </h5>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="selectAll">
+                    <label class="form-check-label" for="selectAll">Tout sélectionner</label>
+                </div>
             </div>
             <div class="card-body">
                 @if($boites->count() > 0)
@@ -145,56 +153,76 @@
                         <table class="table table-hover">
                             <thead>
                                 <tr>
+                                    <th>
+                                        <input type="checkbox" class="form-check-input" id="selectAllHeader">
+                                    </th>
                                     <th>Numéro</th>
+                                    <th>Codes</th>
                                     <th>Localisation</th>
-                                    <th>Dossiers</th>
-                                    <th>Dates</th>
+                                    <th>Occupation</th>
                                     <th>Statut</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($boites as $boite)
-                                    <tr class="{{ $boite->elimine ? 'table-secondary' : '' }}">
+                                    <tr class="{{ $boite->detruite ? 'table-secondary' : '' }}">
+                                        <td>
+                                            <input type="checkbox" class="form-check-input boite-checkbox" value="{{ $boite->id }}">
+                                        </td>
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="me-3">
-                                                    <div class="boite-icon bg-{{ $boite->elimine ? 'secondary' : 'primary' }}">
+                                                    <div class="boite-icon bg-{{ $boite->detruite ? 'secondary' : ($boite->utilisation_percentage > 90 ? 'danger' : ($boite->utilisation_percentage > 70 ? 'warning' : 'primary')) }}">
                                                         <i class="fas fa-archive"></i>
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <h6 class="mb-0">{{ $boite->numero }}</h6>
-                                                    <small class="text-muted">{{ $boite->reference }}</small>
+                                                    <small class="text-muted">ID: {{ $boite->id }}</small>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
+                                            @if($boite->code_thematique)
+                                                <span class="badge bg-info">{{ $boite->code_thematique }}</span>
+                                            @endif
+                                            @if($boite->code_topo)
+                                                <br><span class="badge bg-secondary">{{ $boite->code_topo }}</span>
+                                            @endif
+                                        </td>
+                                        <td>
                                             @if($boite->position)
-                                                <a href="{{ route('admin.positions.show', $boite->position) }}">
-                                                    {{ $boite->position->full_path }}
+                                                <a href="{{ route('admin.positions.show', $boite->position) }}" class="text-decoration-none">
+                                                    {{ $boite->full_location }}
                                                 </a>
                                             @else
                                                 <span class="text-muted">Non localisée</span>
                                             @endif
                                         </td>
                                         <td>
-                                            <span class="badge bg-info">{{ $boite->dossiers_count }}</span>
-                                            @if($boite->dossiers_count > 0)
-                                                <br><small class="text-muted">{{ $boite->occupation_percentage }}% occupé</small>
-                                            @endif
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-2">
+                                                    <span class="fw-bold">{{ $boite->nbr_dossiers }}/{{ $boite->capacite }}</span>
+                                                </div>
+                                                <div class="progress me-2" style="width: 60px; height: 8px;">
+                                                    <div class="progress-bar bg-{{ $boite->utilisation_percentage < 50 ? 'success' : ($boite->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
+                                                         style="width: {{ $boite->utilisation_percentage }}%"></div>
+                                                </div>
+                                                <small>{{ number_format($boite->utilisation_percentage, 1) }}%</small>
+                                            </div>
                                         </td>
                                         <td>
-                                            <small class="text-muted">Archivage:</small>
-                                            <div>{{ $boite->date_archivage->format('d/m/Y') }}</div>
-                                            <small class="text-muted">Élimination:</small>
-                                            <div>{{ $boite->date_elimination ? $boite->date_elimination->format('d/m/Y') : '-' }}</div>
-                                        </td>
-                                        <td>
-                                            @if($boite->elimine)
-                                                <span class="badge bg-secondary">Éliminée</span>
+                                            @if($boite->detruite)
+                                                <span class="badge bg-secondary">Détruite</span>
+                                            @elseif($boite->utilisation_percentage >= 100)
+                                                <span class="badge bg-danger">Pleine</span>
+                                            @elseif($boite->utilisation_percentage >= 90)
+                                                <span class="badge bg-warning">Presque pleine</span>
+                                            @elseif($boite->utilisation_percentage > 0)
+                                                <span class="badge bg-success">En cours</span>
                                             @else
-                                                <span class="badge bg-success">Active</span>
+                                                <span class="badge bg-info">Vide</span>
                                             @endif
                                         </td>
                                         <td>
@@ -207,14 +235,14 @@
                                                    class="btn btn-outline-primary" title="Modifier">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                @if($boite->elimine)
+                                                @if($boite->detruite)
                                                     <button class="btn btn-outline-success" 
                                                             onclick="restoreBoite({{ $boite->id }})" title="Restaurer">
                                                         <i class="fas fa-trash-restore"></i>
                                                     </button>
                                                 @else
                                                     <button class="btn btn-outline-danger" 
-                                                            onclick="confirmElimination({{ $boite->id }})" title="Éliminer">
+                                                            onclick="confirmDestruction({{ $boite->id }})" title="Détruire">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 @endif
@@ -248,53 +276,27 @@
     </div>
 </div>
 
-<!-- Modal de confirmation d'élimination -->
-<div class="modal fade" id="eliminationModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmer l'élimination</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Êtes-vous sûr de vouloir marquer cette boîte comme éliminée ?</p>
-                <p class="text-danger"><small>Cette action est réversible mais doit être utilisée avec précaution.</small></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <form id="eliminationForm" method="POST" style="display: none;">
-                    @csrf
-                    @method('PUT')
-                </form>
-                <button type="button" class="btn btn-danger" onclick="document.getElementById('eliminationForm').submit()">
-                    Confirmer l'élimination
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de confirmation de restauration -->
-<div class="modal fade" id="restoreModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmer la restauration</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Êtes-vous sûr de vouloir restaurer cette boîte ?</p>
-                <p class="text-success"><small>La boîte redeviendra active dans le système.</small></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <form id="restoreForm" method="POST" style="display: none;">
-                    @csrf
-                    @method('PUT')
-                </form>
-                <button type="button" class="btn btn-success" onclick="document.getElementById('restoreForm').submit()">
-                    Confirmer la restauration
-                </button>
+<!-- Actions groupées -->
+<div class="row mt-4" id="bulkActionsRow" style="display: none;">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <strong id="selectedCount">0</strong> boîte(s) sélectionnée(s)
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-success" onclick="bulkRestore()">
+                            <i class="fas fa-trash-restore me-2"></i>Restaurer
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="bulkDestroy()">
+                            <i class="fas fa-trash me-2"></i>Détruire
+                        </button>
+                        <button class="btn btn-outline-info" onclick="bulkExport()">
+                            <i class="fas fa-download me-2"></i>Exporter
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -303,39 +305,140 @@
 
 @push('scripts')
 <script>
-    // Confirmer l'élimination d'une boîte
-    function confirmElimination(id) {
-        const modal = new bootstrap.Modal(document.getElementById('eliminationModal'));
-        const form = document.getElementById('eliminationForm');
-        form.action = `/admin/boites/${id}/eliminate`;
-        modal.show();
+    let selectedBoites = [];
+
+    // Gestion de la sélection multiple
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAllButtons = ['selectAll', 'selectAllHeader'];
+        selectAllButtons.forEach(id => {
+            document.getElementById(id).addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.boite-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateSelectedBoites();
+                // Synchroniser les autres boutons "Tout sélectionner"
+                selectAllButtons.forEach(otherId => {
+                    if (otherId !== id) {
+                        document.getElementById(otherId).checked = this.checked;
+                    }
+                });
+            });
+        });
+
+        // Écouter les changements sur les checkboxes individuelles
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('boite-checkbox')) {
+                updateSelectedBoites();
+            }
+        });
+    });
+
+    function updateSelectedBoites() {
+        selectedBoites = Array.from(document.querySelectorAll('.boite-checkbox:checked')).map(cb => cb.value);
+        const count = selectedBoites.length;
+        
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('bulkActionsRow').style.display = count > 0 ? 'block' : 'none';
+        
+        // Mettre à jour l'état des boutons "Tout sélectionner"
+        const allCheckboxes = document.querySelectorAll('.boite-checkbox');
+        const selectAllButtons = ['selectAll', 'selectAllHeader'];
+        selectAllButtons.forEach(id => {
+            document.getElementById(id).checked = count === allCheckboxes.length;
+        });
+    }
+
+    // Confirmer la destruction d'une boîte
+    function confirmDestruction(id) {
+        if (confirm('Êtes-vous sûr de vouloir marquer cette boîte comme détruite ?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/boites/${id}/destroy-box`;
+            form.innerHTML = `
+                @csrf
+                @method('PUT')
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
     }
 
     // Restaurer une boîte
     function restoreBoite(id) {
-        const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
-        const form = document.getElementById('restoreForm');
-        form.action = `/admin/boites/${id}/restore`;
-        modal.show();
+        if (confirm('Êtes-vous sûr de vouloir restaurer cette boîte ?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/boites/${id}/restore-box`;
+            form.innerHTML = `
+                @csrf
+                @method('PUT')
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Actions groupées
+    function bulkDestroy() {
+        if (selectedBoites.length === 0) {
+            alert('Veuillez sélectionner au moins une boîte.');
+            return;
+        }
+        
+        if (confirm(`Êtes-vous sûr de vouloir détruire ${selectedBoites.length} boîte(s) ?`)) {
+            performBulkAction('destroy');
+        }
+    }
+
+    function bulkRestore() {
+        if (selectedBoites.length === 0) {
+            alert('Veuillez sélectionner au moins une boîte.');
+            return;
+        }
+        
+        if (confirm(`Êtes-vous sûr de vouloir restaurer ${selectedBoites.length} boîte(s) ?`)) {
+            performBulkAction('restore');
+        }
+    }
+
+    function bulkExport() {
+        if (selectedBoites.length === 0) {
+            alert('Veuillez sélectionner au moins une boîte.');
+            return;
+        }
+        
+        performBulkAction('export');
+    }
+
+    function performBulkAction(action) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route("admin.boites.bulk-action") }}';
+        form.innerHTML = `
+            @csrf
+            <input type="hidden" name="action" value="${action}">
+            <input type="hidden" name="boite_ids" value="${JSON.stringify(selectedBoites)}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
     }
 
     // Exporter les données
     function exportData() {
         const params = new URLSearchParams(window.location.search);
-        window.location.href = `{{ route('admin.boites.index') }}/export?${params.toString()}`;
+        window.location.href = `{{ route('admin.boites.export') }}?${params.toString()}`;
     }
 
-    // Actions groupées
+    // Actions groupées générales
     function showBulkActions() {
-        const selected = Array.from(document.querySelectorAll('.boite-checkbox:checked')).map(cb => cb.value);
-        
-        if (selected.length === 0) {
-            alert('Veuillez sélectionner au moins une boîte.');
+        if (selectedBoites.length === 0) {
+            alert('Veuillez d\'abord sélectionner des boîtes en cochant les cases correspondantes.');
             return;
         }
         
-        // Implémenter les actions groupées
-        console.log('Actions groupées pour:', selected);
+        // Afficher le panneau d'actions groupées
+        document.getElementById('bulkActionsRow').style.display = 'block';
     }
 </script>
 @endpush
@@ -362,6 +465,19 @@
 
     .badge {
         font-size: 0.75em;
+    }
+
+    .progress {
+        background-color: #e9ecef;
+    }
+
+    .table-secondary {
+        opacity: 0.7;
+    }
+
+    .card-body .text-center h3 {
+        font-size: 2rem;
+        font-weight: 700;
     }
 </style>
 @endpush

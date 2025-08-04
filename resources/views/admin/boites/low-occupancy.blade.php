@@ -5,97 +5,233 @@
 @section('content')
 <div class="page-header">
     <div class="d-flex justify-content-between align-items-center">
-        <h1 class="page-title">
-            <i class="fas fa-chart-pie me-2"></i>
-            Boîtes Peu Occupées
-        </h1>
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-chart-pie me-2"></i>
+                Boîtes Peu Occupées
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Tableau de bord</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('admin.boites.index') }}">Boîtes</a></li>
+                    <li class="breadcrumb-item active">Boîtes peu occupées</li>
+                </ol>
+            </nav>
+        </div>
         <div class="btn-group">
             <a href="{{ route('admin.boites.index') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>
                 Retour à la liste
             </a>
+            <button type="button" class="btn btn-outline-primary" onclick="exportLowOccupancy()">
+                <i class="fas fa-download me-2"></i>
+                Exporter
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Filtres pour le seuil d'occupation -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row align-items-end">
+                    <div class="col-md-3">
+                        <label for="threshold" class="form-label">Seuil d'occupation (%)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="threshold" 
+                               name="threshold" 
+                               value="{{ request('threshold', 30) }}" 
+                               min="1" 
+                               max="99"
+                               placeholder="30">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="position_id" class="form-label">Position</label>
+                        <select class="form-select" id="position_id" name="position_id">
+                            <option value="">Toutes positions</option>
+                            @foreach($positions as $position)
+                                <option value="{{ $position->id }}" {{ request('position_id') == $position->id ? 'selected' : '' }}>
+                                    {{ $position->nom }} - {{ $position->rayonnage->nom ?? 'N/A' }} ({{ $position->rayonnage->salle->nom ?? 'N/A' }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="per_page" class="form-label">Par page</label>
+                        <select class="form-select" id="per_page" name="per_page">
+                            <option value="15" {{ request('per_page') == 15 ? 'selected' : '' }}>15</option>
+                            <option value="30" {{ request('per_page') == 30 ? 'selected' : '' }}>30</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>
+                            Analyser
+                        </button>
+                        <a href="{{ route('admin.boites.low-occupancy') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>
+                            Réinitialiser
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques d'analyse -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
+                <h3 class="text-warning">{{ $boites->total() }}</h3>
+                <p class="text-muted mb-0">Boîtes sous le seuil</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-percentage text-info fa-3x mb-3"></i>
+                <h3 class="text-info">{{ request('threshold', 30) }}%</h3>
+                <p class="text-muted mb-0">Seuil d'occupation</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-arrows-alt text-success fa-3x mb-3"></i>
+                <h3 class="text-success">{{ $boites->sum(function($b) { return $b->capacite - $b->nbr_dossiers; }) }}</h3>
+                <p class="text-muted mb-0">Places disponibles</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-compress-arrows-alt text-primary fa-3x mb-3"></i>
+                <h3 class="text-primary">{{ number_format($boites->avg('utilisation_percentage'), 1) }}%</h3>
+                <p class="text-muted mb-0">Occupation moyenne</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Liste des boîtes peu occupées -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-box-open me-2"></i>
-                    Boîtes avec faible taux d'occupation
+                    <i class="fas fa-list me-2"></i>
+                    Boîtes avec moins de {{ request('threshold', 30) }}% d'occupation
+                    <span class="badge bg-warning ms-2">{{ $boites->total() }}</span>
                 </h5>
             </div>
             <div class="card-body">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Cette liste montre les boîtes contenant moins de 30% de dossiers par rapport à leur capacité estimée.
-                    Vous pouvez optimiser l'espace en consolidant ces boîtes.
-                </div>
-                
                 @if($boites->count() > 0)
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Boîte</th>
+                                    <th>Numéro</th>
                                     <th>Localisation</th>
                                     <th>Occupation</th>
-                                    <th>Dossiers</th>
+                                    <th>Places disponibles</th>
+                                    <th>Potentiel d'optimisation</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($boites as $boite)
-                                    <tr>
+                                    <tr class="{{ $boite->detruite ? 'table-secondary' : '' }}">
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="me-3">
-                                                    <div class="boite-icon bg-primary">
+                                                    <div class="boite-icon bg-warning">
                                                         <i class="fas fa-archive"></i>
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <h6 class="mb-0">{{ $boite->numero }}</h6>
-                                                    <small class="text-muted">{{ $boite->reference }}</small>
+                                                    <small class="text-muted">
+                                                        @if($boite->code_thematique)
+                                                            <span class="badge bg-info me-1">{{ $boite->code_thematique }}</span>
+                                                        @endif
+                                                        @if($boite->code_topo)
+                                                            <span class="badge bg-secondary">{{ $boite->code_topo }}</span>
+                                                        @endif
+                                                    </small>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
                                             @if($boite->position)
-                                                <a href="{{ route('admin.positions.show', $boite->position) }}">
-                                                    {{ $boite->position->full_path }}
-                                                </a>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold">{{ $boite->position->nom }}</span>
+                                                    <small class="text-muted">
+                                                        {{ $boite->position->rayonnage->nom ?? 'N/A' }} - 
+                                                        {{ $boite->position->rayonnage->salle->nom ?? 'N/A' }}
+                                                    </small>
+                                                </div>
                                             @else
                                                 <span class="text-muted">Non localisée</span>
                                             @endif
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <div class="progress me-2" style="width: 100px; height: 8px;">
-                                                    <div class="progress-bar bg-{{ $boite->occupation_percentage < 10 ? 'danger' : 'warning' }}" 
-                                                         style="width: {{ $boite->occupation_percentage }}%"></div>
+                                                <div class="me-2">
+                                                    <span class="fw-bold">{{ $boite->nbr_dossiers }}/{{ $boite->capacite }}</span>
                                                 </div>
-                                                <small>{{ $boite->occupation_percentage }}%</small>
+                                                <div class="progress me-2" style="width: 80px; height: 10px;">
+                                                    <div class="progress-bar bg-warning" 
+                                                         style="width: {{ $boite->utilisation_percentage }}%"></div>
+                                                </div>
+                                                <small class="text-warning fw-bold">{{ number_format($boite->utilisation_percentage, 1) }}%</small>
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info">{{ $boite->dossiers_count }}</span>
+                                            <span class="badge bg-success fs-6">
+                                                {{ $boite->capacite - $boite->nbr_dossiers }} places
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @php
+                                                $potentiel = 100 - $boite->utilisation_percentage;
+                                            @endphp
+                                            <div class="d-flex align-items-center">
+                                                @if($potentiel > 70)
+                                                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                                                    <span class="text-danger fw-bold">Très élevé ({{ number_format($potentiel, 1) }}%)</span>
+                                                @elseif($potentiel > 50)
+                                                    <i class="fas fa-exclamation-circle text-warning me-2"></i>
+                                                    <span class="text-warning fw-bold">Élevé ({{ number_format($potentiel, 1) }}%)</span>
+                                                @else
+                                                    <i class="fas fa-info-circle text-info me-2"></i>
+                                                    <span class="text-info">Modéré ({{ number_format($potentiel, 1) }}%)</span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
                                                 <a href="{{ route('admin.boites.show', $boite) }}" 
-                                                   class="btn btn-outline-info" title="Voir">
+                                                   class="btn btn-outline-info" title="Voir détails">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 <a href="{{ route('admin.boites.edit', $boite) }}" 
                                                    class="btn btn-outline-primary" title="Modifier">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                <button class="btn btn-outline-success" 
-                                                        onclick="showConsolidateModal({{ $boite->id }})" title="Consolider">
-                                                    <i class="fas fa-compress-alt"></i>
+                                                <button class="btn btn-outline-warning" 
+                                                        onclick="showOptimizationSuggestions({{ $boite->id }})" 
+                                                        title="Suggestions d'optimisation">
+                                                    <i class="fas fa-lightbulb"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -108,14 +244,32 @@
                     <!-- Pagination -->
                     @if($boites->hasPages())
                         <div class="d-flex justify-content-center mt-4">
-                            {{ $boites->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
+                            {{ $boites->appends(request()->query())->links() }}
                         </div>
                     @endif
+
+                    <!-- Suggestions d'optimisation globales -->
+                    <div class="alert alert-info mt-4">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Suggestions d'optimisation :</h6>
+                        <ul class="mb-0">
+                            <li>Considérer le regroupement des dossiers dans les boîtes les plus pleines</li>
+                            <li>Évaluer la possibilité de fusionner certaines boîtes peu occupées</li>
+                            <li>Vérifier si certaines boîtes peuvent être supprimées ou réaffectées</li>
+                            <li>Analyser les tendances d'utilisation pour optimiser l'espace de stockage</li>
+                        </ul>
+                    </div>
                 @else
                     <div class="text-center py-5">
                         <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                        <h5 class="text-success">Aucune boîte peu occupée</h5>
-                        <p class="text-muted">Toutes vos boîtes sont suffisamment remplies.</p>
+                        <h5 class="text-success">Excellente optimisation !</h5>
+                        <p class="text-muted">
+                            Aucune boîte n'a une occupation inférieure à {{ request('threshold', 30) }}%.
+                            <br>Votre espace de stockage est bien optimisé.
+                        </p>
+                        <a href="{{ route('admin.boites.index') }}" class="btn btn-primary">
+                            <i class="fas fa-archive me-2"></i>
+                            Voir toutes les boîtes
+                        </a>
                     </div>
                 @endif
             </div>
@@ -123,43 +277,27 @@
     </div>
 </div>
 
-<!-- Modal de consolidation -->
-<div class="modal fade" id="consolidateModal" tabindex="-1">
-    <div class="modal-dialog">
+<!-- Modal des suggestions d'optimisation -->
+<div class="modal fade" id="optimizationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Consolider une Boîte</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Suggestions d'optimisation
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="consolidateForm" method="POST">
-                @csrf
-                <div class="modal-body">
-                    <p>Vous êtes sur le point de consolider les dossiers de cette boîte avec une autre boîte.</p>
-                    
-                    <div class="mb-3">
-                        <label for="target_boite_id" class="form-label">Boîte de destination</label>
-                        <select class="form-select" id="target_boite_id" name="target_boite_id" required>
-                            <option value="">Sélectionner une boîte</option>
-                            @foreach($all_boites as $target)
-                                <option value="{{ $target->id }}">
-                                    {{ $target->numero }} ({{ $target->position ? $target->position->full_path : 'Non localisée' }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="delete_empty" name="delete_empty">
-                        <label class="form-check-label" for="delete_empty">
-                            Supprimer la boîte source si vide après consolidation
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="submit" class="btn btn-primary">Confirmer la consolidation</button>
-                </div>
-            </form>
+            <div class="modal-body" id="optimizationContent">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="applyOptimization()">
+                    <i class="fas fa-magic me-2"></i>
+                    Appliquer les suggestions
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -167,13 +305,72 @@
 
 @push('scripts')
 <script>
-    // Afficher le modal de consolidation
-    function showConsolidateModal(boiteId) {
-        const modal = new bootstrap.Modal(document.getElementById('consolidateModal'));
-        const form = document.getElementById('consolidateForm');
-        form.action = `/admin/boites/${boiteId}/consolidate`;
+    function exportLowOccupancy() {
+        const params = new URLSearchParams(window.location.search);
+        params.set('export', '1');
+        window.location.href = `{{ route('admin.boites.low-occupancy') }}?${params.toString()}`;
+    }
+
+    function showOptimizationSuggestions(boiteId) {
+        // Récupérer les détails de la boîte (vous pouvez faire un appel AJAX ici)
+        const modal = new bootstrap.Modal(document.getElementById('optimizationModal'));
+        
+        // Contenu des suggestions (à adapter selon vos besoins)
+        const content = `
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Analyse de la boîte</h6>
+                <p>Cette boîte présente un faible taux d'occupation qui peut être optimisé.</p>
+            </div>
+            
+            <h6>Actions recommandées :</h6>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex align-items-center">
+                    <i class="fas fa-arrows-alt text-primary me-3"></i>
+                    <div>
+                        <strong>Regroupement</strong><br>
+                        <small class="text-muted">Déplacer les dossiers vers une boîte plus pleine</small>
+                    </div>
+                </li>
+                <li class="list-group-item d-flex align-items-center">
+                    <i class="fas fa-compress text-warning me-3"></i>
+                    <div>
+                        <strong>Compactage</strong><br>
+                        <small class="text-muted">Réorganiser les dossiers pour libérer de l'espace</small>
+                    </div>
+                </li>
+                <li class="list-group-item d-flex align-items-center">
+                    <i class="fas fa-recycle text-success me-3"></i>
+                    <div>
+                        <strong>Réaffectation</strong><br>
+                        <small class="text-muted">Utiliser cette boîte pour de nouveaux dossiers</small>
+                    </div>
+                </li>
+            </ul>
+        `;
+        
+        document.getElementById('optimizationContent').innerHTML = content;
         modal.show();
     }
+
+    function applyOptimization() {
+        alert('Fonctionnalité d\'optimisation automatique à implémenter selon vos besoins spécifiques.');
+        // Ici vous pouvez implémenter la logique d'optimisation automatique
+    }
+
+    // Validation du seuil
+    document.addEventListener('DOMContentLoaded', function() {
+        const thresholdInput = document.getElementById('threshold');
+        if (thresholdInput) {
+            thresholdInput.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                if (value < 1 || value > 99) {
+                    this.setCustomValidity('Le seuil doit être entre 1 et 99%');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+        }
+    });
 </script>
 @endpush
 
@@ -190,9 +387,33 @@
         font-size: 1.2rem;
     }
 
+    .table th {
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        background-color: #f8f9fa;
+    }
+
     .progress {
-        height: 8px;
         background-color: #e9ecef;
+    }
+
+    .table-secondary {
+        opacity: 0.7;
+    }
+
+    .card-body .text-center h3 {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .list-group-item {
+        border: none;
+        padding: 1rem 0;
+    }
+
+    .list-group-item:not(:last-child) {
+        border-bottom: 1px solid #dee2e6 !important;
     }
 </style>
 @endpush

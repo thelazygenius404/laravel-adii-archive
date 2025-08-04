@@ -245,7 +245,7 @@
     </div>
 </div>
 
-<!-- Modal de création en lot -->
+<!-- Modal pour création en lot -->
 <div class="modal fade" id="bulkCreateModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -321,10 +321,125 @@
         </div>
     </div>
 </div>
+@endsection
 
 @push('scripts')
 <script>
-    // Mise à jour de l'aperçu en lot - CORRIGÉ
+    // Mise à jour en temps réel de l'aperçu
+    function updatePreview() {
+        const nom = document.getElementById('nom').value || 'Position';
+        const vide = document.querySelector('input[name="vide"]:checked').value;
+        const niveau = document.getElementById('niveau').value;
+        const colonne = document.getElementById('colonne').value;
+        const rangee = document.getElementById('rangee').value;
+
+        // Mise à jour du nom
+        document.getElementById('positionName').textContent = nom;
+
+        // Mise à jour du statut et icône
+        const icon = document.getElementById('positionIcon');
+        const status = document.getElementById('positionStatus');
+        
+        if (vide === '1') {
+            status.textContent = 'Libre';
+            status.className = 'text-success';
+            icon.className = 'fas fa-map-marker-alt fa-3x text-success';
+        } else {
+            status.textContent = 'Réservée';
+            status.className = 'text-warning';
+            icon.className = 'fas fa-map-marker-alt fa-3x text-warning';
+        }
+
+        // Mise à jour des détails
+        let details = '<div class="row text-center">';
+        if (niveau) {
+            details += `<div class="col-4"><small class="text-muted">Niveau</small><div class="fw-bold">${niveau}</div></div>`;
+        }
+        if (colonne) {
+            details += `<div class="col-4"><small class="text-muted">Colonne</small><div class="fw-bold">${colonne}</div></div>`;
+        }
+        if (rangee) {
+            details += `<div class="col-4"><small class="text-muted">Rangée</small><div class="fw-bold">${rangee}</div></div>`;
+        }
+        details += '</div>';
+        
+        document.getElementById('positionDetails').innerHTML = details;
+    }
+
+    // Écouteurs d'événements
+    ['nom', 'niveau', 'colonne', 'rangee'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+    });
+
+    document.querySelectorAll('input[name="vide"]').forEach(radio => {
+        radio.addEventListener('change', updatePreview);
+    });
+
+    // Gestion du changement de tablette
+    document.getElementById('tablette_id').addEventListener('change', function() {
+        if (this.value) {
+            const selectedOption = this.options[this.selectedIndex];
+            showTabletteInfo(selectedOption);
+        } else {
+            document.getElementById('tabletteInfo').style.display = 'none';
+        }
+    });
+
+    function showTabletteInfo(option) {
+        const tabletteInfo = document.getElementById('tabletteInfo');
+        const tabletteDetails = document.getElementById('tabletteDetails');
+        
+        tabletteDetails.innerHTML = `
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Travée:</span>
+                <span class="fw-bold">${option.dataset.travee}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Salle:</span>
+                <span class="fw-bold">${option.dataset.salle}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Organisme:</span>
+                <span class="fw-bold">${option.dataset.organisme}</span>
+            </div>
+        `;
+        
+        tabletteInfo.style.display = 'block';
+    }
+
+    // Générer un nom automatiquement
+    function generateNom() {
+        const tablette = document.getElementById('tablette_id');
+        const niveau = document.getElementById('niveau').value;
+        const colonne = document.getElementById('colonne').value;
+        const rangee = document.getElementById('rangee').value;
+        
+        if (!tablette.value) {
+            alert('Veuillez d\'abord sélectionner une tablette.');
+            return;
+        }
+
+        // Logique de génération basée sur les coordonnées
+        let nom = 'P';
+        if (niveau) nom += niveau + '-';
+        if (colonne) nom += colonne + '-';
+        if (rangee) nom += rangee + '-';
+        
+        // Ajouter un numéro séquentiel (simulation)
+        nom += '001';
+        
+        document.getElementById('nom').value = nom;
+        updatePreview();
+    }
+
+    // Modal de création en lot
+    function showBulkCreate() {
+        const modal = new bootstrap.Modal(document.getElementById('bulkCreateModal'));
+        modal.show();
+        updateBulkPreview();
+    }
+
+    // Mise à jour de l'aperçu en lot
     function updateBulkPreview() {
         const prefix = document.getElementById('bulk_prefix').value || 'P';
         const nombre = parseInt(document.getElementById('bulk_nombre').value) || 1;
@@ -350,93 +465,106 @@
 
     // Écouteurs pour l'aperçu en lot
     ['bulk_prefix', 'bulk_nombre', 'bulk_start'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener('input', updateBulkPreview);
-        }
+        document.getElementById(id).addEventListener('input', updateBulkPreview);
     });
+    document.getElementById('bulk_zero_pad').addEventListener('change', updateBulkPreview);
 
-    const zeroPadCheckbox = document.getElementById('bulk_zero_pad');
-    if (zeroPadCheckbox) {
-        zeroPadCheckbox.addEventListener('change', updateBulkPreview);
-    }
-
-    // Modal de création en lot - CORRIGÉ
-    function showBulkCreate() {
-        const modal = new bootstrap.Modal(document.getElementById('bulkCreateModal'));
-        modal.show();
-        updateBulkPreview();
-    }
-
-    // Soumettre la création en lot - CORRIGÉ
+    // Soumettre la création en lot
     function submitBulkCreate() {
         const form = document.getElementById('bulkCreateForm');
-        if (!form) {
-            console.error('Formulaire de création groupée non trouvé');
-            return;
-        }
-        
         const formData = new FormData(form);
-        
-        // Validation côté client
-        const tabletteId = formData.get('tablette_id');
-        const nombrePositions = formData.get('nombre_positions');
-        const prefix = formData.get('prefix');
-        
-        if (!tabletteId || !nombrePositions || !prefix) {
-            alert('Veuillez remplir tous les champs obligatoires.');
-            return;
-        }
-        
-        if (nombrePositions < 1 || nombrePositions > 100) {
-            alert('Le nombre de positions doit être entre 1 et 100.');
-            return;
-        }
-        
-        // Désactiver le bouton pendant le traitement
-        const submitBtn = document.querySelector('#bulkCreateModal .btn-primary');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création en cours...';
         
         fetch('{{ route("admin.positions.bulk-create") }}', {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
             },
             body: formData
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert(data.message);
+                alert(`${data.created} position(s) créée(s) avec succès.`);
                 bootstrap.Modal.getInstance(document.getElementById('bulkCreateModal')).hide();
-                window.location.reload();
+                window.location.href = '{{ route("admin.positions.index") }}';
             } else {
-                alert('Erreur lors de la création: ' + (data.message || 'Erreur inconnue'));
+                alert('Erreur lors de la création des positions');
             }
         })
         .catch(error => {
             console.error('Erreur:', error);
-            alert('Erreur lors de la création des positions: ' + error.message);
-        })
-        .finally(() => {
-            // Réactiver le bouton
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+            alert('Erreur lors de la création des positions');
         });
     }
 
-    // Initialisation
+    // Initialiser l'aperçu
     document.addEventListener('DOMContentLoaded', function() {
-        updateBulkPreview();
+        updatePreview();
+        
+        // Si une tablette est pré-sélectionnée
+        const tabletteSelect = document.getElementById('tablette_id');
+        if (tabletteSelect.value) {
+            const selectedOption = tabletteSelect.options[tabletteSelect.selectedIndex];
+            showTabletteInfo(selectedOption);
+        }
     });
+    
+    function bulkCreatePositions() {
+    const form = document.getElementById('bulkCreateForm');
+    if (!form) {
+        console.error('Formulaire de création groupée non trouvé');
+        return;
+    }
+    
+    const formData = new FormData(form);
+    
+    // Validation
+    const tabletteId = formData.get('tablette_id');
+    const nombrePositions = formData.get('nombre_positions');
+    const prefix = formData.get('prefix');
+    
+    if (!tabletteId || !nombrePositions || !prefix) {
+        alert('Veuillez remplir tous les champs obligatoires.');
+        return;
+    }
+    
+    if (nombrePositions < 1 || nombrePositions > 100) {
+        alert('Le nombre de positions doit être entre 1 et 100.');
+        return;
+    }
+    
+    fetch('{{ route("admin.positions.bulk-create") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            
+            // Rediriger vers la liste des positions ou recharger
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                location.reload();
+            }
+        } else {
+            alert('Erreur lors de la création: ' + (data.message || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la création des positions: ' + error.message);
+    });
+}
 </script>
 @endpush
 

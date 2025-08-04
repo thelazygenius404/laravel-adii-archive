@@ -31,33 +31,55 @@
                 <form action="{{ route('admin.boites.store') }}" method="POST">
                     @csrf
                     
-                    <!-- Numéro et référence -->
+                    <!-- Numéro et codes -->
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="numero" class="form-label">Numéro <span class="text-danger">*</span></label>
                             <input type="text" class="form-control @error('numero') is-invalid @enderror" 
-                                   id="numero" name="numero" value="{{ old('numero') }}" required>
+                                   id="numero" name="numero" value="{{ old('numero', $nextNumber ?? '') }}" required>
                             @error('numero')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="form-text text-muted">Numéro unique d'identification</small>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="reference" class="form-label">Référence</label>
-                            <input type="text" class="form-control @error('reference') is-invalid @enderror" 
-                                   id="reference" name="reference" value="{{ old('reference') }}">
-                            @error('reference')
+                            <label for="capacite" class="form-label">Capacité <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control @error('capacite') is-invalid @enderror" 
+                                   id="capacite" name="capacite" value="{{ old('capacite', 20) }}" min="1" required>
+                            @error('capacite')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
-                            <small class="form-text text-muted">Référence complémentaire</small>
+                            <small class="form-text text-muted">Nombre maximum de dossiers</small>
+                        </div>
+                    </div>
+
+                    <!-- Codes thématique et topographique -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code_thematique" class="form-label">Code Thématique</label>
+                            <input type="text" class="form-control @error('code_thematique') is-invalid @enderror" 
+                                   id="code_thematique" name="code_thematique" value="{{ old('code_thematique') }}">
+                            @error('code_thematique')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">Classification thématique</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="code_topo" class="form-label">Code Topographique</label>
+                            <input type="text" class="form-control @error('code_topo') is-invalid @enderror" 
+                                   id="code_topo" name="code_topo" value="{{ old('code_topo') }}">
+                            @error('code_topo')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">Classification géographique</small>
                         </div>
                     </div>
                     
                     <!-- Position -->
                     <div class="mb-3">
-                        <label for="position_id" class="form-label">Position</label>
+                        <label for="position_id" class="form-label">Position <span class="text-danger">*</span></label>
                         <select class="form-select @error('position_id') is-invalid @enderror" 
-                                id="position_id" name="position_id">
+                                id="position_id" name="position_id" required>
                             <option value="">Sélectionner une position</option>
                             @foreach($positions as $position)
                                 <option value="{{ $position->id }}" 
@@ -67,9 +89,6 @@
                                         data-salle="{{ $position->tablette->travee->salle->nom }}"
                                         data-organisme="{{ $position->tablette->travee->salle->organisme->nom_org }}">
                                     {{ $position->full_path }}
-                                    @if(!$position->vide)
-                                        (Occupée)
-                                    @endif
                                 </option>
                             @endforeach
                         </select>
@@ -89,36 +108,6 @@
                         </p>
                     </div>
                     
-                    <!-- Dates -->
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="date_archivage" class="form-label">Date d'archivage <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control @error('date_archivage') is-invalid @enderror" 
-                                   id="date_archivage" name="date_archivage" value="{{ old('date_archivage', date('Y-m-d')) }}" required>
-                            @error('date_archivage')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="date_elimination" class="form-label">Date d'élimination prévue</label>
-                            <input type="date" class="form-control @error('date_elimination') is-invalid @enderror" 
-                                   id="date_elimination" name="date_elimination" value="{{ old('date_elimination') }}">
-                            @error('date_elimination')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-                    
-                    <!-- Description -->
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control @error('description') is-invalid @enderror" 
-                                  id="description" name="description" rows="3">{{ old('description') }}</textarea>
-                        @error('description')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-2"></i>
@@ -135,8 +124,35 @@
     </div>
     
     <div class="col-lg-4">
-        <!-- Statistiques des positions -->
+        <!-- Calcul automatique -->
         <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-calculator me-2"></i>
+                    Calcul de Capacité
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <div class="bg-light p-3 rounded">
+                        <h4 class="text-primary mb-1" id="capaciteDisplay">20</h4>
+                        <small class="text-muted">Dossiers max</small>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <span class="text-muted">Occupation initiale :</span>
+                    <span class="fw-bold">0 dossiers</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Espace disponible :</span>
+                    <span class="fw-bold text-success" id="espaceDisponible">20 dossiers</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques des positions -->
+        <div class="card mt-3">
             <div class="card-header">
                 <h6 class="card-title mb-0">
                     <i class="fas fa-chart-pie me-2"></i>
@@ -161,20 +177,20 @@
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <h6 class="text-primary"><i class="fas fa-check me-2"></i>Numérotation</h6>
+                    <h6 class="text-primary"><i class="fas fa-check me-2"></i>Capacité</h6>
                     <ul class="list-unstyled mb-0">
-                        <li><small>• Utilisez un système de numérotation cohérent</small></li>
-                        <li><small>• Évitez les caractères spéciaux</small></li>
-                        <li><small>• Gardez les numéros aussi courts que possible</small></li>
+                        <li><small>• 15-25 dossiers par boîte standard</small></li>
+                        <li><small>• Ajustez selon le type de documents</small></li>
+                        <li><small>• Prévoyez de l'espace pour expansion</small></li>
                     </ul>
                 </div>
 
                 <div class="mb-3">
-                    <h6 class="text-success"><i class="fas fa-check me-2"></i>Archivage</h6>
+                    <h6 class="text-success"><i class="fas fa-check me-2"></i>Codification</h6>
                     <ul class="list-unstyled mb-0">
-                        <li><small>• Vérifiez la position avant archivage</small></li>
-                        <li><small>• Saisissez une date d'élimination si connue</small></li>
-                        <li><small>• Ajoutez une description claire</small></li>
+                        <li><small>• Utilisez des codes cohérents</small></li>
+                        <li><small>• Code thématique pour le contenu</small></li>
+                        <li><small>• Code topo pour la localisation</small></li>
                     </ul>
                 </div>
             </div>
@@ -185,6 +201,13 @@
 
 @push('scripts')
 <script>
+    // Mise à jour du calcul de capacité
+    document.getElementById('capacite').addEventListener('input', function() {
+        const capacite = parseInt(this.value) || 0;
+        document.getElementById('capaciteDisplay').textContent = capacite;
+        document.getElementById('espaceDisponible').textContent = capacite + ' dossiers';
+    });
+
     // Mise à jour des informations de la position sélectionnée
     document.getElementById('position_id').addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
@@ -199,51 +222,30 @@
             document.getElementById('organismeInfo').textContent = selectedOption.dataset.organisme;
             positionInfo.style.display = 'block';
             
-            // Si la position est occupée, afficher un avertissement
-            if (selectedOption.text.includes('Occupée')) {
-                positionInfo.innerHTML += `
-                    <div class="alert alert-warning mt-2">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Cette position est déjà occupée par une autre boîte
-                    </div>
-                `;
-            }
-            
-            // Charger les statistiques via AJAX
-            fetch(`/api/positions/${selectedOption.value}/stats`)
-                .then(response => response.json())
-                .then(data => {
-                    positionStats.innerHTML = `
-                        <div class="text-center mb-3">
-                            <h2 class="text-primary">${data.boite ? data.boite.numero : 'Libre'}</h2>
-                            <p class="text-muted">Statut actuel</p>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <span class="text-muted">Dernière modification :</span>
-                            <span class="fw-bold">${data.last_updated || '-'}</span>
-                        </div>
-                        
-                        <hr>
-                        
-                        <div class="mb-2">
-                            <span class="text-muted">Tablette :</span>
-                            <span class="fw-bold">${data.tablette || '-'}</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="text-muted">Travée :</span>
-                            <span class="fw-bold">${data.travee || '-'}</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="text-muted">Salle :</span>
-                            <span class="fw-bold">${data.salle || '-'}</span>
-                        </div>
-                        <div class="mb-2">
-                            <span class="text-muted">Organisme :</span>
-                            <span class="fw-bold">${data.organisme || '-'}</span>
-                        </div>
-                    `;
-                });
+            // Simuler les statistiques (vous pouvez faire un appel AJAX pour récupérer les vraies données)
+            positionStats.innerHTML = `
+                <div class="text-center mb-3">
+                    <h2 class="text-success">Libre</h2>
+                    <p class="text-muted">Statut actuel</p>
+                </div>
+                
+                <div class="mb-2">
+                    <span class="text-muted">Tablette :</span>
+                    <span class="fw-bold">${selectedOption.dataset.tablette}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Travée :</span>
+                    <span class="fw-bold">${selectedOption.dataset.travee}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Salle :</span>
+                    <span class="fw-bold">${selectedOption.dataset.salle}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted">Organisme :</span>
+                    <span class="fw-bold">${selectedOption.dataset.organisme}</span>
+                </div>
+            `;
         } else {
             positionInfo.style.display = 'none';
             positionStats.innerHTML = `
@@ -255,7 +257,7 @@
         }
     });
     
-    // Si une position est présélectionnée (via query string)
+    // Si une position est présélectionnée
     document.addEventListener('DOMContentLoaded', function() {
         const positionSelect = document.getElementById('position_id');
         if (positionSelect.value) {
@@ -267,13 +269,18 @@
 
 @push('styles')
 <style>
-    .alert-warning {
-        background-color: rgba(255,193,7,0.1);
-        border-left: 4px solid #ffc107;
+    .alert-info {
+        background-color: rgba(13,202,240,0.1);
+        border-left: 4px solid #0dcaf0;
     }
     
     .list-unstyled li {
         padding: 0.1rem 0;
+    }
+
+    .card-body h4 {
+        font-size: 2rem;
+        font-weight: 700;
     }
 </style>
 @endpush

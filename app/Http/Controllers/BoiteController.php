@@ -12,35 +12,44 @@ class BoiteController extends Controller
     /**
      * Display a listing of the boites.
      */
-    public function index(Request $request)
-    {
-        $query = Boite::with(['position.tablette.travee.salle.organisme']);
+    /**
+ * Display a listing of the boites.
+ */
+public function index(Request $request)
+{
+    $query = Boite::with(['position.tablette.travee.salle.organisme']);
 
-        if ($request->filled('search')) {
-            $query->search($request->search);
-        }
-
-        if ($request->filled('status')) {
-            if ($request->status === 'active') {
-                $query->active();
-            } elseif ($request->status === 'destroyed') {
-                $query->destroyed();
-            }
-        }
-
-        if ($request->filled('organisme_id')) {
-            $query->whereHas('position.tablette.travee.salle', function ($q) use ($request) {
-                $q->where('organisme_id', $request->organisme_id);
-            });
-        }
-
-        $boites = $query->withCount('dossiers')
-                       ->orderBy('numero')
-                       ->paginate($request->get('per_page', 15))
-                       ->withQueryString();
-
-        return view('admin.boites.index', compact('boites'));
+    if ($request->filled('search')) {
+        $query->search($request->search);
     }
+
+    if ($request->filled('status')) {
+        if ($request->status === 'active') {
+            $query->active();
+        } elseif ($request->status === 'destroyed') {
+            $query->destroyed();
+        }
+    }
+
+    if ($request->filled('organisme_id')) {
+        $query->whereHas('position.tablette.travee.salle', function ($q) use ($request) {
+            $q->where('organisme_id', $request->organisme_id);
+        });
+    }
+
+    $boites = $query->withCount('dossiers')
+                   ->orderBy('numero')
+                   ->paginate($request->get('per_page', 15))
+                   ->withQueryString();
+
+    // Fetch available positions for the dropdown
+    $positions = Position::with(['tablette.travee.salle.organisme'])
+                        ->available()
+                        ->orderBy('nom')
+                        ->get();
+
+    return view('admin.boites.index', compact('boites', 'positions'));
+}
 
     /**
      * Show the form for creating a new boite.

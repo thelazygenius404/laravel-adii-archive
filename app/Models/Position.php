@@ -121,4 +121,5 @@ class Position extends Model
             ->orderBy('id', 'asc')
             ->first();
     }
+    
 }
