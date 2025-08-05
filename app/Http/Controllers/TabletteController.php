@@ -358,12 +358,8 @@ private function bulkDelete($tabletteIds)
 
         Log::info('Bulk delete result', ['deleted' => $deleted, 'errors' => $errors]);
 
-        return response()->json([
-            'success' => $deleted > 0,
-            'message' => $message,
-            'deleted' => $deleted,
-            'errors' => $errors
-        ]);
+        return redirect()->route('admin.tablettes.index')
+                        ->with('success', 'Tablette supprimée avec succès.');
 
     } catch (\Exception $e) {
         Log::error('Bulk delete tablettes error: ' . $e->getMessage());
@@ -519,12 +515,8 @@ private function bulkMove($tabletteIds, $newTraveeId)
 
         Log::info('Bulk move result', ['moved' => $moved, 'warnings' => $warnings]);
 
-        return response()->json([
-            'success' => $moved > 0,
-            'message' => $message,
-            'moved' => $moved,
-            'warnings' => $warnings
-        ]);
+        return redirect()->route('admin.tablettes.index')
+                        ->with('success', 'Tablette déplacée avec succès.');
 
     } catch (\Exception $e) {
         Log::error('Bulk move tablettes error: ' . $e->getMessage());
@@ -598,12 +590,8 @@ private function bulkOptimize($tabletteIds)
 
         Log::info('Bulk optimize result', ['optimized' => $optimized, 'results' => $results]);
 
-        return response()->json([
-            'success' => true,
-            'message' => "{$optimized} tablette(s) optimisée(s) avec succès.",
-            'optimized' => $optimized,
-            'results' => $results
-        ]);
+        return redirect()->route('admin.tablettes.index')
+                        ->with('success', 'Tablette optimisée avec succès.');
 
     } catch (\Exception $e) {
         Log::error('Bulk optimize tablettes error: ' . $e->getMessage());

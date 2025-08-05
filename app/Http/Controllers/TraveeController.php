@@ -6,6 +6,7 @@ use App\Models\Travee;
 use App\Models\Salle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class TraveeController extends Controller
 {
@@ -381,21 +382,153 @@ class TraveeController extends Controller
     /**
      * Bulk move (version simplifiée)
      */
-    private function bulkMove($traveeIds, $newSalleId)
+     private function bulkMove($traveeIds, $newSalleId)
     {
-        if (!$newSalleId) {
+        try {
+            // Validate new salle ID
+            if (!$newSalleId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Salle de destination requise pour le déplacement.'
+                ], 400);
+            }
+
+            // Check if the new salle exists
+            $newSalle = Salle::with('organisme')->find($newSalleId);
+            if (!$newSalle) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La salle de destination n\'existe pas.'
+                ], 404);
+            }
+
+            // Get travees to move
+            $travees = Travee::with('salle')->whereIn('id', $traveeIds)->get();
+            
+            if ($travees->count() === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucune travée trouvée avec les IDs fournis.'
+                ], 404);
+            }
+
+            $moved = 0;
+            $errors = [];
+            $movedTravees = [];
+
+            // Use database transaction for data integrity
+            DB::beginTransaction();
+
+            foreach ($travees as $travee) {
+                try {
+                    // Skip if travee is already in the target salle
+                    if ($travee->salle_id == $newSalleId) {
+                        $errors[] = "La travée '{$travee->nom}' est déjà dans la salle '{$newSalle->nom}'.";
+                        continue;
+                    }
+
+                    // Check for naming conflicts in the new salle
+                    $existingTravee = Travee::where('salle_id', $newSalleId)
+                                           ->where('nom', $travee->nom)
+                                           ->where('id', '!=', $travee->id)
+                                           ->first();
+                    
+                    if ($existingTravee) {
+                        $errors[] = "Une travée nommée '{$travee->nom}' existe déjà dans la salle '{$newSalle->nom}'.";
+                        continue;
+                    }
+
+                    // Store old salle info for logging
+                    $oldSalle = $travee->salle;
+                    
+                    // Update the travee's salle
+                    $travee->update(['salle_id' => $newSalleId]);
+                    
+                    $moved++;
+                    $movedTravees[] = [
+                        'id' => $travee->id,
+                        'nom' => $travee->nom,
+                        'old_salle' => $oldSalle->nom,
+                        'new_salle' => $newSalle->nom,
+                        'tablettes_count' => $travee->tablettes()->count()
+                    ];
+
+                } catch (\Exception $e) {
+                    Log::error("Error moving travee {$travee->id}: " . $e->getMessage());
+                    $errors[] = "Erreur lors du déplacement de la travée '{$travee->nom}': " . $e->getMessage();
+                    continue;
+                }
+            }
+
+            // Commit the transaction if at least one travee was moved
+            if ($moved > 0) {
+                DB::commit();
+                
+                // Log the successful moves
+                Log::info("Bulk move travees completed", [
+                    'moved_count' => $moved,
+                    'target_salle_id' => $newSalleId,
+                    'target_salle_name' => $newSalle->nom,
+                    'moved_travees' => $movedTravees
+                ]);
+            } else {
+                DB::rollback();
+            }
+
+            // Prepare response message
+            $message = '';
+            if ($moved > 0) {
+                $message = "{$moved} travée(s) déplacée(s) avec succès vers la salle '{$newSalle->nom}' ({$newSalle->organisme->nom_org}).";
+                
+                // Add details about moved travees if not too many
+                if (count($movedTravees) <= 3) {
+                    $traveeNames = collect($movedTravees)->pluck('nom')->implode(', ');
+                    $message .= " Travées déplacées: {$traveeNames}.";
+                }
+            } else {
+                $message = 'Aucune travée n\'a pu être déplacée.';
+            }
+
+            if (!empty($errors)) {
+                $message .= ' Erreurs rencontrées: ' . implode(' ', array_slice($errors, 0, 3));
+                if (count($errors) > 3) {
+                    $message .= " (et " . (count($errors) - 3) . " autres erreurs)";
+                }
+            }
+
+            return response()->json([
+                'success' => $moved > 0,
+                'message' => $message,
+                'moved' => $moved,
+                'errors' => $errors,
+                'details' => [
+                    'target_salle' => [
+                        'id' => $newSalle->id,
+                        'nom' => $newSalle->nom,
+                        'organisme' => $newSalle->organisme->nom_org ?? 'N/A'
+                    ],
+                    'moved_travees' => $movedTravees,
+                    'total_requested' => count($traveeIds),
+                    'total_moved' => $moved,
+                    'total_errors' => count($errors)
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            // Rollback transaction on any major error
+            DB::rollback();
+            
+            Log::error('Bulk move travees failed: ' . $e->getMessage(), [
+                'travee_ids' => $traveeIds,
+                'new_salle_id' => $newSalleId,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Salle de destination requise pour le déplacement.'
-            ], 400);
+                'message' => 'Erreur lors du déplacement des travées: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Version simplifiée pour test
-        return response()->json([
-            'success' => true,
-            'message' => 'Déplacement simulé réussi pour ' . count($traveeIds) . ' travée(s).',
-            'moved' => count($traveeIds)
-        ]);
     }
 
     /**

@@ -1,7 +1,10 @@
-{{-- resources/views/admin/tablettes/index.blade.php - VERSION CORRIGÉE --}}
 @extends('layouts.admin')
 
 @section('title', 'Gestion des Tablettes')
+
+@push('head')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+@endpush
 
 @section('content')
 <div class="page-header">
@@ -12,247 +15,356 @@
         </h1>
         <div class="btn-group">
             <a href="{{ route('admin.travees.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left me-2"></i>
-                    Retour 
+                <i class="fas fa-arrow-left me-2"></i>
+                Retour 
             </a>
-            <a href="{{ route('admin.tablettes.create') }}" class="btn btn-primary">
+            <a href="{{ route('admin.tablettes.create') }}" class="btn btn-success">
                 <i class="fas fa-plus me-2"></i>
                 Nouvelle Tablette
             </a>
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="fas fa-cogs me-1"></i>
-                    Actions
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" onclick="exportData()">
-                        <i class="fas fa-download me-2"></i>Exporter la liste
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" onclick="showBulkActions()">
-                        <i class="fas fa-tasks me-2"></i>Actions groupées
-                    </a></li>
-                </ul>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- Filtres et recherche -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <form method="GET" class="row align-items-end">
-                    <div class="col-md-4">
-                        <label for="search" class="form-label">Recherche</label>
-                        <input type="text" class="form-control" id="search" name="search" 
-                               value="{{ request('search') }}" placeholder="Nom de tablette...">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="travee_id" class="form-label">Travée</label>
-                        <select class="form-select" id="travee_id" name="travee_id">
-                            <option value="">Toutes les travées</option>
-                            @foreach($travees as $travee)
-                                <option value="{{ $travee->id }}" {{ request('travee_id') == $travee->id ? 'selected' : '' }}>
-                                    {{ $travee->nom }} ({{ $travee->salle->nom }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="per_page" class="form-label">Par page</label>
-                        <select class="form-select" id="per_page" name="per_page">
-                            <option value="15" {{ request('per_page') == 15 ? 'selected' : '' }}>15</option>
-                            <option value="30" {{ request('per_page') == 30 ? 'selected' : '' }}>30</option>
-                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search me-2"></i>
-                            Filtrer
-                        </button>
-                        <a href="{{ route('admin.tablettes.index') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-2"></i>
-                            Reset
+<div class="card">
+    <div class="card-body">
+        <!-- Filters and Search -->
+        <div class="row mb-4">
+            <!-- Recherche -->
+            <div class="col-md-3">
+                <form method="GET" class="d-flex">
+                    <input type="text" 
+                           name="search" 
+                           class="form-control me-2" 
+                           placeholder="Nom de tablette..."
+                           value="{{ request('search') }}">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    @if(request()->hasAny(['search', 'travee_id']))
+                        <a href="{{ route('admin.tablettes.index') }}" class="btn btn-outline-secondary ms-2">
+                            <i class="fas fa-times"></i>
                         </a>
+                    @endif
+                </form>
+            </div>
+            
+            <!-- Filtre par travée -->
+            <div class="col-md-3">
+                <form method="GET">
+                    @if(request('search'))
+                        <input type="hidden" name="search" value="{{ request('search') }}">
+                    @endif
+                    <select name="travee_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Toutes les travées</option>
+                        @foreach($travees as $travee)
+                            <option value="{{ $travee->id }}" {{ request('travee_id') == $travee->id ? 'selected' : '' }}>
+                                {{ $travee->nom }} ({{ $travee->salle->nom }})
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+            
+            <!-- Actions et pagination -->
+            <div class="col-md-6">
+                <div class="d-flex justify-content-end align-items-center gap-2">
+                    <!-- Pagination -->
+                    <form method="GET" class="d-flex align-items-center">
+                        @if(request('search'))
+                            <input type="hidden" name="search" value="{{ request('search') }}">
+                        @endif
+                        @if(request('travee_id'))
+                            <input type="hidden" name="travee_id" value="{{ request('travee_id') }}">
+                        @endif
+                        <span class="text-nowrap me-1">Afficher</span>
+                        <select name="per_page" class="form-select form-select-sm" style="width: 80px;" onchange="this.form.submit()">
+                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                            <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                            <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="row mb-4">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <i class="fas fa-table text-primary fa-3x mb-3"></i>
+                        <h3 class="text-primary">{{ $tablettes->total() }}</h3>
+                        <p class="text-muted mb-0">Tablettes Totales</p>
                     </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <i class="fas fa-map-marker-alt text-success fa-3x mb-3"></i>
+                        <h3 class="text-success">{{ $tablettes->sum('positions_count') }}</h3>
+                        <p class="text-muted mb-0">Positions Totales</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <i class="fas fa-percentage text-warning fa-3x mb-3"></i>
+                        <h3 class="text-warning">{{ number_format($tablettes->where('positions_count', '>', 0)->avg('utilisation_percentage') ?? 0, 1) }}%</h3>
+                        <p class="text-muted mb-0">Utilisation Moyenne</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <i class="fas fa-archive text-info fa-3x mb-3"></i>
+                        <h3 class="text-info">{{ $travees->count() }}</h3>
+                        <p class="text-muted mb-0">Travées Connectées</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions -->
+        <div class="row mb-3" id="bulk-actions" style="display: none;">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <span id="selected-count">0</span> tablette(s) sélectionnée(s)
+                    <div class="btn-group ms-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="bulkAction('export')">
+                            <i class="fas fa-file-excel me-1"></i>Exporter
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="bulkAction('move')">
+                            <i class="fas fa-arrows-alt me-1"></i>Déplacer
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="bulkAction('optimize')">
+                            <i class="fas fa-magic me-1"></i>Optimiser
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="bulkAction('delete')">
+                            <i class="fas fa-trash me-1"></i>Supprimer
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary ms-2" onclick="clearSelection()">
+                        Annuler sélection
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tablettes Table -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <input type="checkbox" id="select-all" class="form-check-input">
+                        </th>
+                        <th>
+                            <i class="fas fa-table me-1"></i>
+                            Tablette
+                        </th>
+                        <th>
+                            <i class="fas fa-building me-1"></i>
+                            Localisation
+                        </th>
+                        <th>
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Positions
+                        </th>
+                        <th>
+                            <i class="fas fa-chart-pie me-1"></i>
+                            Utilisation
+                        </th>
+                        <th>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Statut
+                        </th>
+                        <th width="150">
+                            <i class="fas fa-cogs me-1"></i>
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($tablettes as $tablette)
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="form-check-input tablette-checkbox" value="{{ $tablette->id }}">
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <div class="avatar bg-{{ $tablette->utilisation_percentage > 80 ? 'danger' : ($tablette->utilisation_percentage > 50 ? 'warning' : 'success') }} text-white rounded">
+                                            <i class="fas fa-table"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ $tablette->nom }}</div>
+                                        <small class="text-muted">ID: {{ $tablette->id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-bold">{{ $tablette->travee->salle->nom }}</span>
+                                    <small class="text-muted">
+                                        {{ $tablette->travee->salle->organisme->nom_org }}
+                                    </small>
+                                    <small class="text-muted">{{ $tablette->travee->nom }}</small>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div>
+                                    <span class="badge bg-info">{{ $tablette->positions_count }}</span>
+                                    @if($tablette->positions_count > 0)
+                                        <br><small class="text-muted">{{ $tablette->positions_occupees ?? 0 }} occupées</small>
+                                    @endif
+                                </div>
+                            </td>
+                            <td>
+                                @if($tablette->positions_count > 0)
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress me-2" style="width: 100px; height: 8px;">
+                                            <div class="progress-bar bg-{{ $tablette->utilisation_percentage < 50 ? 'success' : ($tablette->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
+                                                 style="width: {{ $tablette->utilisation_percentage }}%"></div>
+                                        </div>
+                                        <span class="badge {{ $tablette->utilisation_percentage < 50 ? 'bg-success' : ($tablette->utilisation_percentage < 80 ? 'bg-warning' : 'bg-danger') }}">
+                                            {{ number_format($tablette->utilisation_percentage, 1) }}%
+                                        </span>
+                                    </div>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($tablette->positions_count == 0)
+                                    <span class="badge bg-secondary">Vide</span>
+                                @elseif($tablette->utilisation_percentage >= 90)
+                                    <span class="badge bg-danger">Pleine</span>
+                                @elseif($tablette->utilisation_percentage >= 70)
+                                    <span class="badge bg-warning">Occupée</span>
+                                @else
+                                    <span class="badge bg-success">Disponible</span>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ route('admin.tablettes.show', $tablette) }}" 
+                                       class="btn btn-sm btn-outline-info" 
+                                       title="Voir détails">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ route('admin.tablettes.edit', $tablette) }}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    @if($tablette->positions_count == 0)
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-danger" 
+                                                title="Supprimer"
+                                                onclick="confirmDelete('{{ $tablette->id }}', '{{ $tablette->nom }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    @else
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-secondary" 
+                                                disabled 
+                                                title="Contient des positions">
+                                            <i class="fas fa-lock"></i>
+                                        </button>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-table fa-3x mb-3"></i>
+                                    <p class="mb-0">Aucune tablette trouvée</p>
+                                    @if(request()->hasAny(['search', 'travee_id']))
+                                        <p class="mt-2">
+                                            <a href="{{ route('admin.tablettes.index') }}" class="btn btn-sm btn-outline-primary">
+                                                Voir toutes les tablettes
+                                            </a>
+                                        </p>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if($tablettes->hasPages())
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div class="text-muted">
+                    Affichage de {{ $tablettes->firstItem() }} à {{ $tablettes->lastItem() }} sur {{ $tablettes->total() }} résultats
+                </div>
+                <div>
+                   {{ $tablettes->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
+                </div>
+            </div>
+        @endif
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer la suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer la tablette <strong id="tabletteName"></strong> ?</p>
+                <p class="text-danger"><small>Cette action est irréversible.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="deleteForm" method="POST" class="d-inline">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Statistiques rapides -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-primary">
-            <div class="card-body text-center">
-                <i class="fas fa-table text-primary fa-3x mb-3"></i>
-                <h3 class="text-primary">{{ $tablettes->total() }}</h3>
-                <p class="text-muted mb-0">Tablettes Totales</p>
+<!-- Move Modal -->
+<div class="modal fade" id="moveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Déplacer les tablettes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-success">
-            <div class="card-body text-center">
-                <i class="fas fa-map-marker-alt text-success fa-3x mb-3"></i>
-                <h3 class="text-success">{{ $tablettes->sum('positions_count') }}</h3>
-                <p class="text-muted mb-0">Positions Totales</p>
+            <div class="modal-body">
+                <p>Déplacer <span id="moveCount">0</span> tablette(s) vers :</p>
+                <div class="mb-3">
+                    <label for="newTraveeId" class="form-label">Nouvelle travée</label>
+                    <select class="form-select" id="newTraveeId" name="new_travee_id" required>
+                        <option value="">Sélectionner une travée</option>
+                        @foreach($travees as $travee)
+                            <option value="{{ $travee->id }}">
+                                {{ $travee->nom }} ({{ $travee->salle->nom }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
             </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-warning">
-            <div class="card-body text-center">
-                <i class="fas fa-percentage text-warning fa-3x mb-3"></i>
-                <h3 class="text-warning">{{ number_format($tablettes->where('positions_count', '>', 0)->avg('utilisation_percentage') ?? 0, 1) }}%</h3>
-                <p class="text-muted mb-0">Utilisation Moyenne</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card border-info">
-            <div class="card-body text-center">
-                <i class="fas fa-archive text-info fa-3x mb-3"></i>
-                <h3 class="text-info">{{ $travees->count() }}</h3>
-                <p class="text-muted mb-0">Travées Connectées</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Liste des tablettes -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-list me-2"></i>
-                    Liste des Tablettes
-                    <span class="badge bg-primary ms-2">{{ $tablettes->total() }}</span>
-                </h5>
-            </div>
-            <div class="card-body">
-                @if($tablettes->count() > 0)
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>
-                                        <input type="checkbox" class="form-check-input" id="selectAll">
-                                    </th>
-                                    <th>Tablette</th>
-                                    <th>Localisation</th>
-                                    <th>Positions</th>
-                                    <th>Utilisation</th>
-                                    <th>Statut</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($tablettes as $tablette)
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox" class="form-check-input tablette-checkbox" value="{{ $tablette->id }}">
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="me-3">
-                                                    <div class="tablette-icon bg-{{ $tablette->utilisation_percentage > 80 ? 'danger' : ($tablette->utilisation_percentage > 50 ? 'warning' : 'success') }} text-white">
-                                                        <i class="fas fa-table"></i>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <h6 class="mb-0">{{ $tablette->nom }}</h6>
-                                                    <small class="text-muted">ID: {{ $tablette->id }}</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <strong>{{ $tablette->travee->salle->nom }}</strong>
-                                                <br><small class="text-muted">{{ $tablette->travee->salle->organisme->nom_org }}</small>
-                                                <br><small class="text-muted">{{ $tablette->travee->nom }}</small>
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-info">{{ $tablette->positions_count }}</span>
-                                            @if($tablette->positions_count > 0)
-                                                <br><small class="text-muted">{{ $tablette->positions_occupees ?? 0 }} occupées</small>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($tablette->positions_count > 0)
-                                                <div class="d-flex align-items-center">
-                                                    <div class="progress me-2" style="width: 80px; height: 8px;">
-                                                        <div class="progress-bar bg-{{ $tablette->utilisation_percentage < 50 ? 'success' : ($tablette->utilisation_percentage < 80 ? 'warning' : 'danger') }}" 
-                                                             style="width: {{ $tablette->utilisation_percentage }}%"></div>
-                                                    </div>
-                                                    <small>{{ number_format($tablette->utilisation_percentage, 1) }}%</small>
-                                                </div>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($tablette->positions_count == 0)
-                                                <span class="badge bg-secondary">Vide</span>
-                                            @elseif($tablette->utilisation_percentage >= 90)
-                                                <span class="badge bg-danger">Pleine</span>
-                                            @elseif($tablette->utilisation_percentage >= 70)
-                                                <span class="badge bg-warning">Occupée</span>
-                                            @else
-                                                <span class="badge bg-success">Disponible</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <a href="{{ route('admin.tablettes.show', $tablette) }}" 
-                                                   class="btn btn-outline-info" title="Voir">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="{{ route('admin.tablettes.edit', $tablette) }}" 
-                                                   class="btn btn-outline-primary" title="Modifier">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                @if($tablette->positions_count == 0)
-                                                    <button class="btn btn-outline-danger" 
-                                                            onclick="deleteTablette({{ $tablette->id }})" title="Supprimer">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                @else
-                                                    <button class="btn btn-outline-secondary" disabled title="Contient des positions">
-                                                        <i class="fas fa-lock"></i>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    @if($tablettes->hasPages())
-                        <div class="d-flex justify-content-center mt-4">
-                            {{ $tablettes->onEachSide(1)->links('pagination::simple-bootstrap-4') }}
-                        </div>
-                    @endif
-                @else
-                    <div class="text-center py-5">
-                        <i class="fas fa-table fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">Aucune tablette trouvée</h5>
-                        <p class="text-muted">Commencez par créer votre première tablette.</p>
-                        <a href="{{ route('admin.tablettes.create') }}" class="btn btn-primary">
-                            <i class="fas fa-plus me-2"></i>
-                            Créer une tablette
-                        </a>
-                    </div>
-                @endif
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="executeMove()">Déplacer</button>
             </div>
         </div>
     </div>
@@ -261,238 +373,163 @@
 
 @push('scripts')
 <script>
-    // Variables globales pour le debug
     let selectedTablettes = [];
 
-    // CORRECTION 1: Fonction de mise à jour de la sélection
-    function updateSelectedTablettes() {
-        selectedTablettes = Array.from(document.querySelectorAll('.tablette-checkbox:checked')).map(cb => cb.value);
-        console.log('Tablettes sélectionnées:', selectedTablettes);
-    }
-
-    // CORRECTION 2: Sélection multiple avec mise à jour
-    document.getElementById('selectAll').addEventListener('change', function() {
+    // Select all checkbox
+    document.getElementById('select-all').addEventListener('change', function() {
         const checkboxes = document.querySelectorAll('.tablette-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
         });
-        updateSelectedTablettes();
+        updateSelection();
     });
 
-    // CORRECTION 3: Écouteur sur les checkboxes individuelles
+    // Individual checkboxes
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('tablette-checkbox')) {
-            updateSelectedTablettes();
+            updateSelection();
         }
     });
 
-    // Supprimer une tablette
-    function deleteTablette(id) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette tablette ?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `{{ route('admin.tablettes.index') }}/${id}`;
-            form.innerHTML = `
-                @csrf
-                @method('DELETE')
-            `;
-            document.body.appendChild(form);
-            form.submit();
-        }
+    function updateSelection() {
+        const checkboxes = document.querySelectorAll('.tablette-checkbox:checked');
+        selectedTablettes = Array.from(checkboxes).map(cb => cb.value);
+        
+        const count = selectedTablettes.length;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('bulk-actions').style.display = count > 0 ? 'block' : 'none';
+        
+        // Update select all checkbox
+        const allCheckboxes = document.querySelectorAll('.tablette-checkbox');
+        const selectAllCheckbox = document.getElementById('select-all');
+        selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+        selectAllCheckbox.checked = count === allCheckboxes.length;
     }
 
-    // Exporter les données
-   function exportData() {
-        // CORRECTION: Use the same method as salle index
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = '{{ route("admin.tablettes.export") }}';
-        
-        // Add current filter parameters
-        const params = new URLSearchParams(window.location.search);
-        params.forEach((value, key) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = value;
-            form.appendChild(input);
-        });
-        
-        document.body.appendChild(form);
-        form.submit();
+    function clearSelection() {
+        document.querySelectorAll('.tablette-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('select-all').checked = false;
+        updateSelection();
     }
 
-    // CORRECTION 4: Actions groupées complètement refaites
-    function showBulkActions() {
-        updateSelectedTablettes(); // S'assurer que la sélection est à jour
-        
+    function bulkAction(action) {
         if (selectedTablettes.length === 0) {
             alert('Veuillez sélectionner au moins une tablette.');
             return;
         }
+
+        if (action === 'move') {
+            document.getElementById('moveCount').textContent = selectedTablettes.length;
+            const modal = new bootstrap.Modal(document.getElementById('moveModal'));
+            modal.show();
+            return;
+        }
+
+        let confirmMessage = '';
+        switch(action) {
+            case 'delete':
+                confirmMessage = `Êtes-vous sûr de vouloir supprimer définitivement ${selectedTablettes.length} tablette(s) ? Cette action est irréversible.`;
+                break;
+            case 'optimize':
+                confirmMessage = `Optimiser ${selectedTablettes.length} tablette(s) ? Cette action mettra à jour les compteurs et corrigera les incohérences.`;
+                break;
+            case 'export':
+                executeBulkAction('export');
+                return;
+        }
+
+        if (confirm(confirmMessage)) {
+            executeBulkAction(action);
+        }
+    }
+
+    function executeMove() {
+        const newTraveeId = document.getElementById('newTraveeId').value;
+        if (!newTraveeId) {
+            alert('Veuillez sélectionner une travée de destination.');
+            return;
+        }
+
+        executeBulkAction('move', { new_travee_id: newTraveeId });
+        bootstrap.Modal.getInstance(document.getElementById('moveModal')).hide();
+    }
+
+    function executeBulkAction(action, extraData = {}) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ route("admin.tablettes.bulk-action") }}';
         
-        // Supprimer l'ancien modal s'il existe
-        const existingModal = document.getElementById('bulkActionsModal');
-        if (existingModal) {
-            existingModal.remove();
+        // Add CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        // Add action
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = action;
+        form.appendChild(actionInput);
+        
+        // Add tablette IDs
+        selectedTablettes.forEach(function(tabletteId, index) {
+            const tabletteInput = document.createElement('input');
+            tabletteInput.type = 'hidden';
+            tabletteInput.name = 'tablette_ids[' + index + ']';
+            tabletteInput.value = tabletteId;
+            form.appendChild(tabletteInput);
+        });
+        
+        // Add extra data
+        Object.keys(extraData).forEach(key => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = extraData[key];
+            form.appendChild(input);
+        });
+        
+        if (action === 'export') {
+            form.target = '_blank';
         }
         
-        // CORRECTION 5: Modal correct avec gestionnaires d'événements
-        const modalHtml = `
-            <div class="modal fade" id="bulkActionsModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Actions Groupées sur les Tablettes</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>${selectedTablettes.length}</strong> tablette(s) sélectionnée(s)
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Action à effectuer :</label>
-                                <select class="form-select" id="bulkActionSelect">
-                                    <option value="">Choisir une action...</option>
-                                    <option value="export">📤 Exporter la sélection</option>
-                                    <option value="delete">🗑️ Supprimer (tablettes vides uniquement)</option>
-                                    <option value="move">📦 Déplacer vers une autre travée</option>
-                                    <option value="optimize">⚡ Optimiser l'organisation</option>
-                                </select>
-                            </div>
-                            <div id="moveOptions" style="display: none;">
-                                <div class="card border-warning">
-                                    <div class="card-body">
-                                        <label class="form-label">Nouvelle travée :</label>
-                                        <select class="form-select" id="newTraveeId">
-                                            <option value="">Sélectionner une travée</option>
-                                            @foreach($travees as $travee)
-                                                <option value="{{ $travee->id }}">{{ $travee->nom }} ({{ $travee->salle->nom }})</option>
-                                            @endforeach
-                                        </select>
-                                        <div class="alert alert-warning mt-2 mb-0">
-                                            <small>⚠️ Cette action déplacera les tablettes vers la nouvelle travée.</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                            <button type="button" class="btn btn-primary" id="executeBulkBtn" disabled>
-                                <i class="fas fa-cog me-2"></i>Exécuter
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        document.body.appendChild(form);
+        form.submit();
         
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        if (action !== 'export') {
+            setTimeout(() => document.body.removeChild(form), 1000);
+        }
+    }
+
+    function exportData() {
+        const params = new URLSearchParams(window.location.search);
+        const exportUrl = `{{ route('admin.tablettes.export') }}?${params.toString()}`;
+        window.open(exportUrl, '_blank');
+    }
+
+    function confirmDelete(tabletteId, tabletteName) {
+        document.getElementById('tabletteName').textContent = tabletteName;
+        document.getElementById('deleteForm').action = `/admin/tablettes/${tabletteId}`;
         
-        // CORRECTION 6: Attacher les événements APRÈS la création du modal
-        const modal = new bootstrap.Modal(document.getElementById('bulkActionsModal'));
-        
-        // Gérer l'affichage des options de déplacement
-        document.getElementById('bulkActionSelect').addEventListener('change', function() {
-            const moveOptions = document.getElementById('moveOptions');
-            const executeBtn = document.getElementById('executeBulkBtn');
-            
-            moveOptions.style.display = this.value === 'move' ? 'block' : 'none';
-            executeBtn.disabled = !this.value;
-        });
-        
-        // CORRECTION 7: Attacher l'événement au bouton Exécuter
-        document.getElementById('executeBulkBtn').addEventListener('click', function() {
-            executeTablettesBulkAction();
-        });
-        
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
         modal.show();
     }
-
-    // CORRECTION 8: Fonction d'exécution corrigée
-    // Replace the executeTablettesBulkAction function in your Blade template with this corrected version:
-
- function executeTablettesBulkAction() {
-    const action = document.getElementById('bulkActionSelect').value;
-    const newTraveeId = document.getElementById('newTraveeId') ? document.getElementById('newTraveeId').value : null;
-    if (!action) {
-        alert('Veuillez sélectionner une action.');
-        return;
-    }
-    if (action === 'move' && !newTraveeId) {
-        alert('Veuillez sélectionner une travée de destination.');
-        return;
-    }
-    // Désactiver le bouton pendant traitement
-    const executeBtn = document.getElementById('executeBulkBtn');
-    executeBtn.disabled = true;
-    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement...';
-
-    const formData = new FormData();
-    formData.append('action', action);
-    formData.append('tablette_ids', JSON.stringify(selectedTablettes));
-    if (newTraveeId) {
-        formData.append('new_travee_id', newTraveeId);
-    }
-
-    fetch('{{ route("admin.tablettes.bulk-action") }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-            'Accept': 'application/json'
-        },
-        body: formData
-    })
-    .then(response => {
-        if (action === 'export') {
-            // Redirect to download URL directly
-            window.location.href = response.url;
-        } else {
-            return response.json();
-        }
-    })
-    .then(data => {
-        if (data.success) {
-            if (action !== 'export') {
-                alert(data.message);
-                // Reload if needed
-                if (action !== 'export') {
-                    window.location.reload();
-                }
-            }
-        } else {
-            alert('Erreur: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-        alert('Erreur lors de l\'exécution de l\'action: ' + error.message);
-    })
-    .finally(() => {
-        // Réactiver le bouton
-        executeBtn.disabled = false;
-        executeBtn.innerHTML = '<i class="fas fa-cog me-2"></i>Exécuter';
-    });
-}
-
-    // CORRECTION 9: Debug des routes
-    console.log('Route bulk-action:', '{{ route("admin.tablettes.bulk-action") }}');
-    console.log('CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.content);
 </script>
 @endpush
 
 @push('styles')
 <style>
-    .tablette-icon {
+    .avatar {
         width: 40px;
         height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 8px;
-        font-size: 1.2rem;
+        font-weight: bold;
+        font-size: 0.875rem;
     }
 
     .progress {
@@ -506,17 +543,28 @@
         background-color: #f8f9fa;
     }
 
-    .badge {
-        font-size: 0.75em;
-    }
-
-    .alert {
+    .alert-info {
+        border: none;
         border-radius: 8px;
     }
 
     .card {
-        border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border: none;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .btn-group .btn {
+        border-radius: 0.375rem;
+        margin-right: 2px;
+    }
+
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+
+    .card-body .text-center h3 {
+        font-size: 2rem;
+        font-weight: 700;
     }
 </style>
 @endpush

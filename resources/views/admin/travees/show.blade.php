@@ -7,9 +7,9 @@
 <div class="page-header">
     <div class="d-flex justify-content-between align-items-center">
         <h1 class="page-title">
-            <i class="fas fa-layer-group me-2"></i>
+            <i class="fas fa-tablet-alt me-2"></i>
             {{ $travee->nom }}
-            <span class="badge bg-primary ms-2">{{ $travee->salle->organisme->nom_org }}</span>
+            <span class="badge bg-primary ms-1">{{ $travee->salle->organisme->nom_org }}</span>
         </h1>
         <div class="btn-group">
             <a href="{{ route('admin.travees.index') }}" class="btn btn-outline-secondary">
@@ -17,7 +17,7 @@
                 Retour à la liste
             </a>
             <a href="{{ route('admin.travees.edit', $travee) }}" class="btn btn-primary">
-                <i class="fas fa-edit me-2"></i>
+                <i class="fas fa-edit me-1"></i>
                 Modifier
             </a>
             <a href="{{ route('admin.stockage.hierarchy') }}?travee={{ $travee->id }}" class="btn btn-success">
@@ -287,56 +287,6 @@
         </div>
     </div>
 </div>
-
-<!-- Actions rapides -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-bolt me-2"></i>
-                    Actions Rapides
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="d-grid">
-                            <a href="{{ route('admin.tablettes.create') }}?travee_id={{ $travee->id }}" class="btn btn-primary">
-                                <i class="fas fa-plus me-2"></i>
-                                Ajouter tablette
-                            </a>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="d-grid">
-                            <button class="btn btn-outline-info" onclick="generatePositions()">
-                                <i class="fas fa-magic me-2"></i>
-                                Générer positions
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="d-grid">
-                            <button class="btn btn-outline-success" onclick="exportTravee()">
-                                <i class="fas fa-download me-2"></i>
-                                Exporter structure
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="d-grid">
-                            <button class="btn btn-outline-warning" onclick="optimizeTravee()">
-                                <i class="fas fa-chart-line me-2"></i>
-                                Optimiser
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 @endsection
 
 @push('styles')
@@ -398,7 +348,7 @@
     function generatePositions() {
         if (confirm('Voulez-vous générer automatiquement des positions pour toutes les tablettes vides ?')) {
             // Implémentation à ajouter selon vos besoins
-            fetch(`{{ route('admin.positions.bulk-create') }}`, {
+            fetch(`{{ route('admin.positions.generate-for-travee') }}`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,

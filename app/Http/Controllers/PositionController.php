@@ -311,27 +311,104 @@ class PositionController extends Controller
             ], 500);
         }
     }
+    public function export(Request $request)
+    {
+        try {
+            $query = Position::with(['tablette.travee.salle.organisme', 'boite']);
+
+            // Apply filters
+            if ($request->filled('search')) {
+                $query->where('nom', 'LIKE', "%{$request->search}%");
+            }
+
+            if ($request->filled('tablette_id')) {
+                $query->where('tablette_id', $request->tablette_id);
+            }
+
+            if ($request->filled('status')) {
+                if ($request->status === 'libre') {
+                    $query->available();
+                } elseif ($request->status === 'occupee') {
+                    $query->occupied();
+                }
+            }
+
+            $positions = $query->orderBy('nom')->get();
+
+            $filename = 'positions_' . date('Y-m-d_H-i-s') . '.csv';
+
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                'Pragma' => 'no-cache',
+                'Expires' => '0'
+            ];
+
+            $callback = function() use ($positions) {
+                $file = fopen('php://output', 'w');
+                
+                // Add UTF-8 BOM for proper Excel encoding
+                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                
+                // CSV headers
+                fputcsv($file, [
+                    'ID',
+                    'Nom',
+                    'Tablette',
+                    'Travée',
+                    'Salle',
+                    'Organisme',
+                    'Statut',
+                    'Boîte',
+                    'Date de Création'
+                ], ';');
+                
+                foreach ($positions as $position) {
+                    fputcsv($file, [
+                        $position->id,
+                        $position->nom,
+                        $position->tablette->nom,
+                        $position->tablette->travee->nom,
+                        $position->tablette->travee->salle->nom,
+                        $position->tablette->travee->salle->organisme->nom_org,
+                        $position->vide ? 'Libre' : 'Occupée',
+                        $position->boite ? $position->boite->numero : '-',
+                        $position->created_at->format('d/m/Y H:i:s')
+                    ], ';');
+                }
+                
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+
+        } catch (\Exception $e) {
+            Log::error('Position export error: ' . $e->getMessage());
+            
+            return redirect()->route('admin.positions.index')
+                            ->with('error', 'Erreur lors de l\'exportation: ' . $e->getMessage());
+        }
+    }
 
     /**
      * Actions groupées sur les positions - Nouvelle méthode
      */
     public function bulkAction(Request $request)
     {
-        try {
+            try {
             $validated = $request->validate([
                 'action' => 'required|string|in:delete,export,move,toggle_status',
-                'position_ids' => 'required|string', // Reçu comme string JSON
+                'position_ids' => 'required|array|min:1', // Accept as array directly
+                'position_ids.*' => 'integer|exists:positions,id', // Validate each ID
                 'new_tablette_id' => 'nullable|integer|exists:tablettes,id'
             ]);
 
-            // Décoder les IDs
-            $positionIds = json_decode($validated['position_ids'], true);
+            $positionIds = $validated['position_ids'];
             
             if (!is_array($positionIds) || empty($positionIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Aucune position sélectionnée.'
-                ], 400);
+                return redirect()->route('admin.positions.index')
+                                ->with('error', 'Aucune position sélectionnée pour l\'action groupée.');
             }
 
             $action = $validated['action'];
@@ -351,26 +428,19 @@ class PositionController extends Controller
                     return $this->bulkToggleStatus($positionIds);
                 
                 default:
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Action non reconnue.'
-                    ], 400);
+                    return redirect()->route('admin.positions.index')
+                                    ->with('error', 'Action non reconnue.');
             }
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur de validation.',
-                'errors' => $e->errors()
-            ], 422);
+            return redirect()->route('admin.positions.index')
+                            ->with('error', 'Erreur de validation: ' . implode(', ', $e->errors()));
             
         } catch (\Exception $e) {
             Log::error('Position bulk action error: ' . $e->getMessage());
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur interne du serveur: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('admin.positions.index')
+                            ->with('error', 'Erreur lors de l\'action groupée: ' . $e->getMessage());
         }
     }
 
@@ -400,19 +470,13 @@ class PositionController extends Controller
                 $message .= ' Erreurs: ' . implode(' ', $errors);
             }
 
-            return response()->json([
-                'success' => $deleted > 0,
-                'message' => $message,
-                'deleted' => $deleted,
-                'errors' => $errors
-            ]);
+            return redirect()->route('admin.positions.index')
+                             ->with('success', $message);
 
         } catch (\Exception $e) {
             Log::error('Bulk delete positions error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('admin.positions.index')
+                             ->with('error', 'Erreur lors de la suppression: ' . $e->getMessage());
         }
     }
 
@@ -474,19 +538,15 @@ class PositionController extends Controller
     private function bulkMove($positionIds, $newTabletteId)
     {
         if (!$newTabletteId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tablette de destination requise pour le déplacement.'
-            ], 400);
+            return redirect()->route('admin.positions.index')
+                             ->with('error', 'Tablette de destination requise pour le déplacement.');
         }
 
         try {
             $newTablette = Tablette::find($newTabletteId);
             if (!$newTablette) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Tablette de destination introuvable.'
-                ], 404);
+                return redirect()->route('admin.positions.index')
+                                ->with('error', 'Tablette de destination introuvable.');
             }
 
             $positions = Position::whereIn('id', $positionIds)->get();
@@ -509,19 +569,13 @@ class PositionController extends Controller
                 $message .= ' Erreurs: ' . implode(' ', $errors);
             }
 
-            return response()->json([
-                'success' => $moved > 0,
-                'message' => $message,
-                'moved' => $moved,
-                'errors' => $errors
-            ]);
+            return redirect()->route('admin.positions.index')
+                             ->with('success', $message);
 
         } catch (\Exception $e) {
             Log::error('Bulk move positions error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors du déplacement: ' . $e->getMessage()
-            ], 500);
+            return redirect()->route('admin.positions.index')
+                             ->with('error', 'Erreur lors du déplacement: ' . $e->getMessage());
         }
     }
 
@@ -552,21 +606,14 @@ class PositionController extends Controller
                 $message .= ' Erreurs: ' . implode(' ', $errors);
             }
 
-            return response()->json([
-                'success' => $toggled > 0,
-                'message' => $message,
-                'toggled' => $toggled,
-                'errors' => $errors
-            ]);
+            return redirect()->route('admin.positions.index')
+                             ->with('success', $message);
 
         } catch (\Exception $e) {
             Log::error('Bulk toggle positions error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur lors de la modification: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+            return redirect()->route('admin.positions.index')
+                             ->with('error', 'Erreur lors de la modification du statut: ' . $e->getMessage());
+    }}
 
     /**
      * Create positions for a specific tablette.
