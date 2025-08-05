@@ -157,20 +157,24 @@
                         </th>
                         <th>
                             <i class="fas fa-layer-group me-1"></i>
-                            Plan
+                            Objet
                         </th>
                         <th>
                             <i class="fas fa-file-alt me-1"></i>
                             Nature du Dossier
                         </th>
                         <th>
-                            <i class="fas fa-clock me-1"></i>
-                            Durées (AC/AI)
-                        </th>
-                        <th>
                             <i class="fas fa-balance-scale me-1"></i>
                             Délais Légaux
                         </th>
+                        <th>
+                            <i class="fas fa-clock me-1"></i>
+                            Durées Archive Courant
+                        </th>
+                        <th>
+                            <i class="fas fa-clock me-1"></i>
+                            Durées Archive Intermédiaire
+                        </th>  
                         <th>
                             <i class="fas fa-flag me-1"></i>
                             Sort Final
@@ -201,14 +205,17 @@
                                 <div class="fw-bold">{{ $regle->short_nature }}</div>
                             </td>
                             <td>
+                                <span class="badge bg-dark">{{ $regle->delais_legaux }} ans</span>
+                            </td>
+                            <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="badge bg-info me-1">{{ $regle->archive_courant }}AC</span>
-                                    <span class="badge bg-warning me-1">{{ $regle->archive_intermediaire }}AI</span>
-                                    <small class="text-muted">({{ $regle->total_duration }} total)</small>
+                                    <span class="badge bg-info me-1">{{ $regle->archive_courant }} ans</span>
                                 </div>
                             </td>
                             <td>
-                                <span class="badge bg-dark">{{ $regle->delais_legaux }} ans</span>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-warning me-1">{{ $regle->archive_intermediaire }} ans</span>
+                                </div>
                             </td>
                             <td>
                                 <span class="badge {{ $regle->status_badge_class }}">

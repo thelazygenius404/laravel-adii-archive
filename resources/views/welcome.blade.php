@@ -177,10 +177,9 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="text-center animate-fade-in">
                 {{-- Coat of Arms --}}
-                <div class="mb-8">
-                    <div class="inline-block p-6 bg-blue-500 text-white rounded-3xl shadow-2xl animate-pulse-glow">
-                        {{-- Replace this path with your actual logo path --}}
-                        <img src="{{ asset('images/logo.png') }}" alt="Logo ADII" class="h-24 w-auto rounded-2xl">
+                <div class="flex items-center justify-center mx-auto">
+                    <div class="flex items-center">
+                        <img src="{{ asset('images/logo.png') }}" alt="Logo ADII" class="h-32 w-auto rounded-2xl">
                     </div>
                 </div>
                 

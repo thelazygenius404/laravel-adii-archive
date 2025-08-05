@@ -54,7 +54,7 @@
             align-items: center;
         }
         .header-logo img {
-            max-width: 150px;
+            max-width: 250px;
             height: auto;
             display: block;
             margin: 0 auto;
@@ -235,7 +235,7 @@
     <div class="guest-layout">
         <div class="login-card" style="animation: fadeIn 0.8s ease-out;">
             <div class="header-logo">
-                <img src="{{ asset('images/logo.png') }}" alt="ADII Logo" />
+                <img src="{{ asset('images/logo.png') }}" alt="ADII Logo"  />
             </div>
             <div class="header-title">ADII</div>
             <div class="header-subtitle">Système de gestion des archives</div>

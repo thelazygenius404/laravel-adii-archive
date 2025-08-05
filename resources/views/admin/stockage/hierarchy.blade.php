@@ -61,8 +61,6 @@
                         <option value="">Tous</option>
                         <option value="available">Positions libres</option>
                         <option value="occupied">Positions occupées</option>
-                        <option value="full">Boîtes pleines</option>
-                        <option value="low">Faible occupation</option>
                     </select>
                 </div>
 

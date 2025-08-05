@@ -42,8 +42,8 @@
         }
 
         .sidebar-header img {
-            width: 80px; /* Increased from 60px */
-            height: 80px; /* Increased from 60px */
+            width: 175px; /* Increased from 60px */
+            height: 100px; /* Increased from 60px */
             border-radius: 15px; /* Changed from 50% to rounded rectangle */
             margin-bottom: 15px; /* Increased spacing */
             
@@ -207,24 +207,6 @@
                 <a class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
                     <i class="fas fa-home"></i>
                     Accueil
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">
-                    <i class="fas fa-search"></i>
-                    Recherche des dossiers
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">
-                    <i class="fas fa-money-bill"></i>
-                    Gestion des versements
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">
-                    <i class="fas fa-trash"></i>
-                    Gestion des éliminations
                 </a>
             </li>
             <li class="nav-item">
