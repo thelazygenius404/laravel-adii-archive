@@ -227,12 +227,6 @@
                     Gestion des Espaces de stockage  
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">
-                    <i class="fas fa-comments"></i>
-                    Gestion des Communications
-                </a>
-            </li>
              <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('admin.organismes.*') ? 'active' : '' }}" href="{{ route('admin.organismes.index') }}">
                     <i class="fas fa-sitemap"></i>
