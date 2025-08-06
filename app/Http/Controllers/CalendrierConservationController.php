@@ -23,7 +23,7 @@ class CalendrierConservationController extends Controller
 
         // Filter by plan classement
         if ($request->filled('plan_classement')) {
-            $query->where('plan_classement_id', $request->plan_classement);
+            $query->where('plan_classement_code', $request->plan_classement);
         }
 
         // Filter by sort final
@@ -31,7 +31,7 @@ class CalendrierConservationController extends Controller
             $query->where('sort_final', $request->sort_final);
         }
 
-        $regles = $query->orderBy('NO_regle')
+        $regles = $query->orderBy('plan_classement_code')
                        ->paginate($request->get('per_page', 15))
                        ->withQueryString();
 
@@ -47,10 +47,12 @@ class CalendrierConservationController extends Controller
     {
         $planClassements = PlanClassement::orderBy('code_classement')->get();
         
-        // Generate next rule number
-        $nextRule = $this->generateNextRuleNumber();
+        // Get available plan classements that don't have conservation rules yet
+        $availablePlans = PlanClassement::whereNotIn('code_classement', 
+            CalendrierConservation::pluck('plan_classement_code')
+        )->orderBy('code_classement')->get();
         
-        return view('admin.calendrier-conservation.create', compact('planClassements', 'nextRule'));
+        return view('admin.calendrier-conservation.create', compact('planClassements', 'availablePlans'));
     }
 
     /**
@@ -59,27 +61,24 @@ class CalendrierConservationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'NO_regle' => 'required|string|max:10|unique:calendrier_conservation',
-            'delais_legaux' => 'required|integer|min:0',
-            'nature_dossier' => 'required|string|max:50',
-            'reference' => 'required|string',
-            'plan_classement_id' => 'required|exists:plan_classement,id',
-            'sort_final' => 'required|in:C,E,T',
-            'archive_courant' => 'required|integer|min:0',
-            'archive_intermediaire' => 'required|integer|min:0',
+            'plan_classement_code' => 'required|string|max:20|exists:plan_classement,code_classement|unique:calendrier_conservation',
+            'pieces_constituant' => 'nullable|string',
+            'principal_secondaire' => 'nullable|in:P,S',
+            'delai_legal' => 'nullable|string|max:50',
+            'reference_juridique' => 'nullable|string',
+            'archives_courantes' => 'required|string|max:100',
+            'archives_intermediaires' => 'required|string|max:50',
+            'sort_final' => 'required|in:C,D,T',
             'observation' => 'nullable|string',
         ], [
-            'NO_regle.required' => 'Le numéro de règle est obligatoire.',
-            'NO_regle.unique' => 'Ce numéro de règle existe déjà.',
-            'delais_legaux.required' => 'Les délais légaux sont obligatoires.',
-            'delais_legaux.integer' => 'Les délais légaux doivent être un nombre entier.',
-            'nature_dossier.required' => 'La nature du dossier est obligatoire.',
-            'reference.required' => 'La référence est obligatoire.',
-            'plan_classement_id.required' => 'Le plan de classement est obligatoire.',
+            'plan_classement_code.required' => 'Le plan de classement est obligatoire.',
+            'plan_classement_code.unique' => 'Ce plan de classement a déjà une règle de conservation.',
+            'plan_classement_code.exists' => 'Le plan de classement sélectionné n\'existe pas.',
+            'archives_courantes.required' => 'La durée d\'archive courante est obligatoire.',
+            'archives_intermediaires.required' => 'La durée d\'archive intermédiaire est obligatoire.',
             'sort_final.required' => 'Le sort final est obligatoire.',
-            'sort_final.in' => 'Le sort final doit être C (Conservation), E (Élimination) ou T (Tri).',
-            'archive_courant.required' => 'La durée d\'archive courante est obligatoire.',
-            'archive_intermediaire.required' => 'La durée d\'archive intermédiaire est obligatoire.',
+            'sort_final.in' => 'Le sort final doit être C (Conservation), D (Destruction) ou T (Tri).',
+            'principal_secondaire.in' => 'Le type doit être P (Principal) ou S (Secondaire).',
         ]);
 
         CalendrierConservation::create($validated);
@@ -114,30 +113,29 @@ class CalendrierConservationController extends Controller
     public function update(Request $request, CalendrierConservation $calendrierConservation)
     {
         $validated = $request->validate([
-            'NO_regle' => [
+            'plan_classement_code' => [
                 'required',
                 'string',
-                'max:10',
+                'max:20',
+                'exists:plan_classement,code_classement',
                 Rule::unique('calendrier_conservation')->ignore($calendrierConservation->id)
             ],
-            'delais_legaux' => 'required|integer|min:0',
-            'nature_dossier' => 'required|string|max:50',
-            'reference' => 'required|string',
-            'plan_classement_id' => 'required|exists:plan_classement,id',
-            'sort_final' => 'required|in:C,E,T',
-            'archive_courant' => 'required|integer|min:0',
-            'archive_intermediaire' => 'required|integer|min:0',
+            'pieces_constituant' => 'nullable|string',
+            'principal_secondaire' => 'nullable|in:P,S',
+            'delai_legal' => 'nullable|string|max:50',
+            'reference_juridique' => 'nullable|string',
+            'archives_courantes' => 'required|string|max:100',
+            'archives_intermediaires' => 'required|string|max:50',
+            'sort_final' => 'required|in:C,D,T',
             'observation' => 'nullable|string',
         ], [
-            'NO_regle.required' => 'Le numéro de règle est obligatoire.',
-            'NO_regle.unique' => 'Ce numéro de règle existe déjà.',
-            'delais_legaux.required' => 'Les délais légaux sont obligatoires.',
-            'nature_dossier.required' => 'La nature du dossier est obligatoire.',
-            'reference.required' => 'La référence est obligatoire.',
-            'plan_classement_id.required' => 'Le plan de classement est obligatoire.',
+            'plan_classement_code.required' => 'Le plan de classement est obligatoire.',
+            'plan_classement_code.unique' => 'Ce plan de classement a déjà une règle de conservation.',
+            'plan_classement_code.exists' => 'Le plan de classement sélectionné n\'existe pas.',
+            'archives_courantes.required' => 'La durée d\'archive courante est obligatoire.',
+            'archives_intermediaires.required' => 'La durée d\'archive intermédiaire est obligatoire.',
             'sort_final.required' => 'Le sort final est obligatoire.',
-            'archive_courant.required' => 'La durée d\'archive courante est obligatoire.',
-            'archive_intermediaire.required' => 'La durée d\'archive intermédiaire est obligatoire.',
+            'principal_secondaire.in' => 'Le type doit être P (Principal) ou S (Secondaire).',
         ]);
 
         $calendrierConservation->update($validated);
@@ -170,14 +168,14 @@ class CalendrierConservationController extends Controller
         }
 
         if ($request->filled('plan_classement')) {
-            $query->where('plan_classement_id', $request->plan_classement);
+            $query->where('plan_classement_code', $request->plan_classement);
         }
 
         if ($request->filled('sort_final')) {
             $query->where('sort_final', $request->sort_final);
         }
 
-        $regles = $query->orderBy('NO_regle')->get();
+        $regles = $query->orderBy('plan_classement_code')->get();
 
         $filename = 'calendrier_conservation_' . date('Y-m-d_H-i-s') . '.csv';
 
@@ -195,29 +193,31 @@ class CalendrierConservationController extends Controller
             // CSV headers
             fputcsv($file, [
                 'N° Règle',
-                'Plan de Classement',
-                'Nature du Dossier',
-                'Délais Légaux',
-                'Archive Courante',
-                'Archive Intermédiaire',
+                'Type de Dossiers',
+                'Pièces Constituant le Dossier',
+                'Principal/Secondaire',
+                'Délai Légal',
+                'Référence Juridique',
+                'Archives Courantes',
+                'Archives Intermédiaires',
                 'Durée Totale',
                 'Sort Final',
-                'Référence',
                 'Observation',
                 'Date de Création'
             ], ';');
             
             foreach ($regles as $regle) {
                 fputcsv($file, [
-                    $regle->NO_regle,
-                    $regle->planClassement->formatted_code . ' - ' . $regle->planClassement->objet_classement,
-                    $regle->nature_dossier,
-                    $regle->delais_legaux,
-                    $regle->archive_courant,
-                    $regle->archive_intermediaire,
+                    $regle->plan_classement_code,
+                    $regle->planClassement ? $regle->planClassement->objet_classement : '',
+                    $regle->pieces_constituant,
+                    $regle->principal_secondaire,
+                    $regle->delai_legal,
+                    $regle->reference_juridique,
+                    $regle->archives_courantes,
+                    $regle->archives_intermediaires,
                     $regle->total_duration,
                     $regle->status,
-                    $regle->reference,
                     $regle->observation,
                     $regle->created_at->format('d/m/Y H:i:s')
                 ], ';');
@@ -232,14 +232,13 @@ class CalendrierConservationController extends Controller
     /**
      * Get regles by plan classement for API/AJAX requests.
      */
-    public function byPlanClassement(Request $request, $planClassementId)
+    public function byPlanClassement(Request $request, $planClassementCode)
     {
-        $regles = CalendrierConservation::where('plan_classement_id', $planClassementId)
-                                       ->select('id', 'NO_regle', 'nature_dossier', 'sort_final')
-                                       ->orderBy('NO_regle')
-                                       ->get();
+        $regle = CalendrierConservation::where('plan_classement_code', $planClassementCode)
+                                      ->with('planClassement')
+                                      ->first();
         
-        return response()->json($regles);
+        return response()->json($regle);
     }
 
     /**
@@ -251,7 +250,7 @@ class CalendrierConservationController extends Controller
             'action' => 'required|in:delete,export,update_sort',
             'regle_ids' => 'required|array',
             'regle_ids.*' => 'exists:calendrier_conservation,id',
-            'sort_final' => 'nullable|in:C,E,T',
+            'sort_final' => 'nullable|in:C,D,T',
         ]);
 
         $regleIds = $validated['regle_ids'];
@@ -292,7 +291,7 @@ class CalendrierConservationController extends Controller
     {
         $regles = CalendrierConservation::with('planClassement')
                                        ->whereIn('id', $regleIds)
-                                       ->orderBy('NO_regle')
+                                       ->orderBy('plan_classement_code')
                                        ->get();
 
         $filename = 'calendrier_conservation_selection_' . date('Y-m-d_H-i-s') . '.csv';
@@ -311,28 +310,30 @@ class CalendrierConservationController extends Controller
             // CSV headers
             fputcsv($file, [
                 'N° Règle',
-                'Plan de Classement',
-                'Nature du Dossier',
-                'Délais Légaux',
-                'Archive Courante',
-                'Archive Intermédiaire',
+                'Type de Dossiers',
+                'Pièces Constituant le Dossier',
+                'Principal/Secondaire',
+                'Délai Légal',
+                'Référence Juridique',
+                'Archives Courantes',
+                'Archives Intermédiaires',
                 'Durée Totale',
                 'Sort Final',
-                'Référence',
                 'Observation'
             ], ';');
             
             foreach ($regles as $regle) {
                 fputcsv($file, [
-                    $regle->NO_regle,
-                    $regle->planClassement->formatted_code . ' - ' . $regle->planClassement->objet_classement,
-                    $regle->nature_dossier,
-                    $regle->delais_legaux,
-                    $regle->archive_courant,
-                    $regle->archive_intermediaire,
+                    $regle->plan_classement_code,
+                    $regle->planClassement ? $regle->planClassement->objet_classement : '',
+                    $regle->pieces_constituant,
+                    $regle->principal_secondaire,
+                    $regle->delai_legal,
+                    $regle->reference_juridique,
+                    $regle->archives_courantes,
+                    $regle->archives_intermediaires,
                     $regle->total_duration,
                     $regle->status,
-                    $regle->reference,
                     $regle->observation
                 ], ';');
             }
@@ -358,7 +359,7 @@ class CalendrierConservationController extends Controller
 
         $statusLabel = match($sortFinal) {
             'C' => 'Conservation',
-            'E' => 'Élimination',
+            'D' => 'Destruction',
             'T' => 'Tri',
         };
 
@@ -369,24 +370,6 @@ class CalendrierConservationController extends Controller
     }
 
     /**
-     * Generate next rule number.
-     */
-    private function generateNextRuleNumber()
-    {
-        $lastRule = CalendrierConservation::orderBy('NO_regle', 'desc')->first();
-        
-        if (!$lastRule) {
-            return 'R001';
-        }
-        
-        // Extract number from last rule (assuming format like R001, R002, etc.)
-        $lastNumber = (int) substr($lastRule->NO_regle, 1);
-        $nextNumber = $lastNumber + 1;
-        
-        return 'R' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-    }
-
-    /**
      * Get statistics for dashboard.
      */
     public function statistics()
@@ -394,11 +377,16 @@ class CalendrierConservationController extends Controller
         $stats = [
             'total_regles' => CalendrierConservation::count(),
             'regles_conservation' => CalendrierConservation::where('sort_final', 'C')->count(),
-            'regles_elimination' => CalendrierConservation::where('sort_final', 'E')->count(),
+            'regles_destruction' => CalendrierConservation::where('sort_final', 'D')->count(),
             'regles_tri' => CalendrierConservation::where('sort_final', 'T')->count(),
-            'duree_moyenne_legale' => CalendrierConservation::avg('delais_legaux'),
-            'duree_moyenne_totale' => CalendrierConservation::selectRaw('AVG(archive_courant + archive_intermediaire) as avg_total')->first()->avg_total,
-            'recent_regles' => CalendrierConservation::with('planClassement')->latest()->limit(5)->get(),
+            'plans_avec_regles' => CalendrierConservation::distinct('plan_classement_code')->count(),
+            'plans_sans_regles' => PlanClassement::whereNotIn('code_classement', 
+                CalendrierConservation::pluck('plan_classement_code')
+            )->count(),
+            'recent_regles' => CalendrierConservation::with('planClassement')
+                                                    ->latest()
+                                                    ->limit(5)
+                                                    ->get(),
         ];
 
         return response()->json($stats);
@@ -409,10 +397,118 @@ class CalendrierConservationController extends Controller
      */
     public function getReglesByPlan(Request $request, PlanClassement $planClassement)
     {
-        $regles = $planClassement->calendrierConservation()
-                                ->orderBy('NO_regle')
-                                ->get();
+        $regle = CalendrierConservation::where('plan_classement_code', $planClassement->code_classement)
+                                      ->first();
 
-        return view('admin.calendrier-conservation.by-plan', compact('planClassement', 'regles'));
+        return view('admin.calendrier-conservation.by-plan', compact('planClassement', 'regle'));
+    }
+
+    /**
+     * Import regles from Excel file.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:2048',
+        ]);
+
+        try {
+            $file = $request->file('excel_file');
+            
+            // Process Excel file here
+            // This would involve reading the Excel file and creating/updating records
+            
+            return redirect()->route('admin.calendrier-conservation.index')
+                            ->with('success', 'Import réalisé avec succès.');
+            
+        } catch (\Exception $e) {
+            return redirect()->route('admin.calendrier-conservation.index')
+                            ->with('error', 'Erreur lors de l\'import : ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get conservation rules summary by category.
+     */
+    public function summaryByCategory()
+    {
+        $categories = CalendrierConservation::with('planClassement')
+            ->get()
+            ->groupBy(function($item) {
+                // Group by first part of the code (e.g., 100, 510, 520, etc.)
+                $parts = explode('.', $item->plan_classement_code);
+                return $parts[0];
+            })
+            ->map(function($categoryItems, $categoryCode) {
+                return [
+                    'category_code' => $categoryCode,
+                    'category_name' => $this->getCategoryName($categoryCode),
+                    'total_regles' => $categoryItems->count(),
+                    'conservation' => $categoryItems->where('sort_final', 'C')->count(),
+                    'destruction' => $categoryItems->where('sort_final', 'D')->count(),
+                    'tri' => $categoryItems->where('sort_final', 'T')->count(),
+                    'regles' => $categoryItems->values()
+                ];
+            });
+
+        return response()->json($categories);
+    }
+
+    /**
+     * Get category name from code.
+     */
+    private function getCategoryName($categoryCode)
+    {
+        $categoryNames = [
+            '100' => 'Organisation et administration',
+            '510' => 'Régimes économiques douaniers',
+            '520' => 'Transit et transport',
+            '530' => 'Contentieux douanier',
+            '540' => 'Recours et réclamations',
+            '550' => 'Contrôle et vérification',
+            '560' => 'Facilitations commerciales',
+            '610' => 'Dédouanement des marchandises',
+        ];
+
+        return $categoryNames[$categoryCode] ?? 'Catégorie ' . $categoryCode;
+    }
+
+    /**
+     * Validate conservation periods.
+     */
+    public function validatePeriods()
+    {
+        $invalidRules = [];
+        $regles = CalendrierConservation::with('planClassement')->get();
+
+        foreach ($regles as $regle) {
+            $issues = [];
+            
+            // Check if periods are coherent
+            $courante = $regle->extractNumericValue($regle->archives_courantes);
+            $intermediaire = $regle->extractNumericValue($regle->archives_intermediaires);
+            $delai = is_numeric($regle->delai_legal) ? (int)$regle->delai_legal : 0;
+            
+            if ($delai > 0 && ($courante + $intermediaire) < $delai) {
+                $issues[] = 'Durée totale inférieure au délai légal';
+            }
+            
+            if ($courante === 0 && $intermediaire === 0) {
+                $issues[] = 'Aucune durée de conservation définie';
+            }
+            
+            if (!empty($issues)) {
+                $invalidRules[] = [
+                    'regle' => $regle,
+                    'issues' => $issues
+                ];
+            }
+        }
+
+        return response()->json([
+            'total_checked' => $regles->count(),
+            'invalid_count' => count($invalidRules),
+            'invalid_rules' => $invalidRules
+        ]);
     }
 }

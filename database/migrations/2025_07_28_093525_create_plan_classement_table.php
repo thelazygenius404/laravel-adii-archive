@@ -13,8 +13,9 @@ return new class extends Migration
     {
         Schema::create('plan_classement', function (Blueprint $table) {
             $table->id();
-            $table->integer('code_classement');
-            $table->string('objet_classement', 500);
+            $table->string('code_classement', 20)->unique(); // Le numéro de règle Excel (ex: 100.10.1, 520.1)
+            $table->string('objet_classement', 255); // Le type de dossiers du fichier Excel
+            $table->text('description')->nullable(); // Description détaillée
             $table->timestamps();
 
             $table->index('code_classement');

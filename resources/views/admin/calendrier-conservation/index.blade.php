@@ -51,8 +51,8 @@
                     <select name="plan_classement" class="form-select" onchange="this.form.submit()">
                         <option value="">Tous les plans</option>
                         @foreach($planClassements as $plan)
-                            <option value="{{ $plan->id }}" {{ request('plan_classement') == $plan->id ? 'selected' : '' }}>
-                                {{ $plan->formatted_code }} - {{ $plan->short_description }}
+                            <option value="{{ $plan->code_classement }}" {{ request('plan_classement') == $plan->code_classement ? 'selected' : '' }}>
+                                {{ $plan->code_classement }} - {{ Str::limit($plan->objet_classement, 40) }}
                             </option>
                         @endforeach
                     </select>
@@ -71,7 +71,7 @@
                     <select name="sort_final" class="form-select" onchange="this.form.submit()">
                         <option value="">Tous les sorts</option>
                         <option value="C" {{ request('sort_final') == 'C' ? 'selected' : '' }}>Conservation</option>
-                        <option value="E" {{ request('sort_final') == 'E' ? 'selected' : '' }}>Élimination</option>
+                        <option value="D" {{ request('sort_final') == 'D' ? 'selected' : '' }}>Destruction</option>
                         <option value="T" {{ request('sort_final') == 'T' ? 'selected' : '' }}>Tri</option>
                     </select>
                 </form>
@@ -153,31 +153,27 @@
                         </th>
                         <th>
                             <i class="fas fa-hashtag me-1"></i>
-                            N° Règle
-                        </th>
-                        <th>
-                            <i class="fas fa-layer-group me-1"></i>
-                            Objet
+                            Plan de Classement
                         </th>
                         <th>
                             <i class="fas fa-file-alt me-1"></i>
-                            Nature du Dossier
+                            Pièces Constituant
                         </th>
                         <th>
                             <i class="fas fa-balance-scale me-1"></i>
-                            Délais Légaux
+                            Délai Légal
                         </th>
                         <th>
                             <i class="fas fa-clock me-1"></i>
-                            Durées Archive Courant
-                        </th>
-                        <th>
-                            <i class="fas fa-clock me-1"></i>
-                            Durées Archive Intermédiaire
+                            Archives
                         </th>  
                         <th>
                             <i class="fas fa-flag me-1"></i>
                             Sort Final
+                        </th>
+                        <th>
+                            <i class="fas fa-tag me-1"></i>
+                            Type
                         </th>
                         <th width="150">
                             <i class="fas fa-cogs me-1"></i>
@@ -192,35 +188,43 @@
                                 <input type="checkbox" class="form-check-input regle-checkbox" value="{{ $regle->id }}">
                             </td>
                             <td>
-                                <span class="badge bg-secondary fs-6">{{ $regle->NO_regle }}</span>
-                            </td>
-                            <td>
                                 <div>
-                                    <span class="badge bg-primary">{{ $regle->planClassement->formatted_code }}</span>
-                                    <br>
-                                    <small class="text-muted">{{ $regle->planClassement->short_description }}</small>
+                                    <span class="badge bg-primary">{{ $regle->plan_classement_code }}</span>
+                                    @if($regle->planClassement)
+                                        <br>
+                                        <small class="text-muted">{{ Str::limit($regle->planClassement->objet_classement, 40) }}</small>
+                                    @endif
                                 </div>
                             </td>
                             <td>
-                                <div class="fw-bold">{{ $regle->short_nature }}</div>
+                                <div class="fw-bold">{{ Str::limit($regle->pieces_constituant ?: 'Non défini', 50) }}</div>
                             </td>
                             <td>
-                                <span class="badge bg-dark">{{ $regle->delais_legaux }} ans</span>
+                                <span class="badge bg-dark">{{ $regle->delai_legal != '_' ? $regle->delai_legal : 'Non défini' }}</span>
                             </td>
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-info me-1">{{ $regle->archive_courant }} ans</span>
+                                <div class="d-flex flex-column">
+                                    <div class="mb-1">
+                                        <span class="badge bg-info me-1">AC: {{ $regle->archives_courantes }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-warning me-1">AI: {{ $regle->archives_intermediaires }}</span>
+                                    </div>
                                 </div>
                             </td>
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-warning me-1">{{ $regle->archive_intermediaire }} ans</span>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge {{ $regle->status_badge_class }}">
-                                    {{ $regle->status }}
+                                <span class="badge {{ $regle->sort_final == 'C' ? 'bg-success' : ($regle->sort_final == 'D' ? 'bg-danger' : 'bg-warning') }}">
+                                    {{ $regle->sort_final == 'C' ? 'Conservation' : ($regle->sort_final == 'D' ? 'Destruction' : 'Tri') }}
                                 </span>
+                            </td>
+                            <td>
+                                @if($regle->principal_secondaire)
+                                    <span class="badge {{ $regle->principal_secondaire == 'P' ? 'bg-primary' : 'bg-secondary' }}">
+                                        {{ $regle->principal_secondaire == 'P' ? 'Principal' : 'Secondaire' }}
+                                    </span>
+                                @else
+                                    <small class="text-muted">Non défini</small>
+                                @endif
                             </td>
                             <td>
                                 <div class="btn-group" role="group">
@@ -237,7 +241,7 @@
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-danger" 
                                             title="Supprimer"
-                                            onclick="confirmDelete('{{ $regle->id }}', '{{ $regle->NO_regle }}')">
+                                            onclick="confirmDelete('{{ $regle->id }}', '{{ $regle->plan_classement_code }}')">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -317,7 +321,7 @@
                         <select id="bulk_sort_final" name="sort_final" class="form-select" required>
                             <option value="">Sélectionner un sort final</option>
                             <option value="C">Conservation</option>
-                            <option value="E">Élimination</option>
+                            <option value="D">Destruction</option>
                             <option value="T">Tri</option>
                         </select>
                     </div>
@@ -452,8 +456,8 @@
         form.submit();
     }
 
-    function confirmDelete(regleId, regleNumber) {
-        document.getElementById('regleNumber').textContent = regleNumber;
+    function confirmDelete(regleId, planCode) {
+        document.getElementById('regleNumber').textContent = planCode;
         document.getElementById('deleteForm').action = '{{ route("admin.calendrier-conservation.index") }}/' + regleId;
         
         const modal = new bootstrap.Modal(document.getElementById('deleteModal'));

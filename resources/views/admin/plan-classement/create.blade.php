@@ -29,21 +29,37 @@
                                 <label for="code_classement" class="form-label">
                                     Code de Classement <span class="text-danger">*</span>
                                 </label>
-                                <input type="number" 
+                                <input type="text" 
                                        class="form-control @error('code_classement') is-invalid @enderror" 
                                        id="code_classement" 
                                        name="code_classement" 
-                                       value="{{ old('code_classement', $nextCode) }}" 
-                                       min="1"
+                                       value="{{ old('code_classement') }}" 
+                                       placeholder="Ex: 100.10.1"
+                                       pattern="^[0-9]+(\.[0-9]+)*$"
                                        required>
                                 @error('code_classement')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-                                <div class="form-text">Numéro unique d'identification du plan.</div>
+                                <div class="form-text">Format numérique (ex: 100.10.1).</div>
                             </div>
                         </div>
                         
-                        <div class="col-md-8">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="category" class="form-label">Catégorie</label>
+                                <select class="form-select" id="category" name="category" onchange="updateCodeSuggestion()">
+                                    <option value="">Sélectionner une catégorie</option>
+                                    @foreach($categories as $code => $name)
+                                        <option value="{{ $code }}" {{ old('category') == $code ? 'selected' : '' }}>
+                                            {{ $code }} - {{ $name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Sélectionnez pour une suggestion de code.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label for="code_preview" class="form-label">Aperçu du Code</label>
                                 <div class="input-group">
@@ -54,9 +70,9 @@
                                            class="form-control bg-light" 
                                            id="code_preview" 
                                            readonly
-                                           value="{{ str_pad($nextCode, 3, '0', STR_PAD_LEFT) }}">
+                                           value="---">
                                 </div>
-                                <div class="form-text">Format d'affichage du code de classement.</div>
+                                <div class="form-text">Format d'affichage du code.</div>
                             </div>
                         </div>
                     </div>
@@ -80,58 +96,28 @@
                         </div>
                     </div>
 
-                    <!-- Suggestions d'objets de classement -->
-                    <div class="card border-info mb-3">
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (optionnelle)</label>
+                        <textarea class="form-control @error('description') is-invalid @enderror" 
+                                  id="description" 
+                                  name="description" 
+                                  rows="3"
+                                  placeholder="Description complémentaire ou notes...">{{ old('description') }}</textarea>
+                        @error('description')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <!-- Suggestions d'objets de classement par catégorie -->
+                    <div class="card border-info mb-3" id="suggestions-card" style="display: none;">
                         <div class="card-header bg-info text-white">
                             <h6 class="mb-0">
                                 <i class="fas fa-lightbulb me-2"></i>
-                                Suggestions d'Objets de Classement
+                                Suggestions pour cette catégorie
                             </h6>
                         </div>
-                        <div class="card-body">
-                            <p class="mb-2">Cliquez sur une suggestion pour la pré-remplir :</p>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="list-group">
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de dédouanement des marchandises - Déclarations en détail Import/Export')">
-                                            Dédouanement Import/Export
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de contentieux douanier - Infractions, amendes et poursuites judiciaires')">
-                                            Contentieux Douanier
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de régimes économiques en douane - Admission temporaire, entrepôt, zone franche')">
-                                            Régimes Économiques
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de transit international - Carnet TIR et documents de transit douanier')">
-                                            Transit International
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="list-group">
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de contrôle a posteriori - Vérifications comptables et contrôles documentaires')">
-                                            Contrôle A Posteriori
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de personnel et ressources humaines - Gestion administrative du personnel')">
-                                            Ressources Humaines
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers financiers et comptables - Budgets, factures, paiements et recouvrement')">
-                                            Financier et Comptable
-                                        </button>
-                                        <button type="button" class="list-group-item list-group-item-action text-start" 
-                                                onclick="fillSuggestion('Dossiers de coopération internationale - Accords douaniers et échanges d\'informations')">
-                                            Coopération Internationale
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="card-body" id="suggestions-content">
+                            <!-- Suggestions dynamiques -->
                         </div>
                     </div>
 
@@ -146,10 +132,11 @@
                         <div class="card-body">
                             <div class="d-flex align-items-center">
                                 <div class="me-3">
-                                    <span class="badge bg-primary fs-5" id="preview-code">001</span>
+                                    <span class="badge bg-primary fs-5" id="preview-code">---</span>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <p class="mb-0 fw-bold" id="preview-description">Description du plan de classement...</p>
+                                    <p class="mb-1 fw-bold" id="preview-objet">Objet de classement...</p>
+                                    <p class="mb-0 text-muted small" id="preview-description">Description...</p>
                                 </div>
                             </div>
                         </div>
@@ -174,26 +161,72 @@
 
 @push('scripts')
 <script>
+    const suggestions = {
+        '100': [
+            'Organisation générale de l\'administration douanière',
+            'Gestion du personnel et ressources humaines', 
+            'Organisation des services et structures'
+        ],
+        '510': [
+            'Déclarations d\'importation de marchandises générales',
+            'Déclarations d\'exportation et réexportation',
+            'Régimes économiques en douane - Entrepôts'
+        ],
+        '520': [
+            'Documents de transit international - Carnet TIR',
+            'Transport routier international de marchandises',
+            'Manifestes de cargaison et documents de transport'
+        ],
+        '530': [
+            'Infractions douanières et amendes',
+            'Contentieux judiciaire en matière douanière',
+            'Procès-verbaux et sanctions administratives'
+        ],
+        '540': [
+            'Recours administratifs contre décisions douanières',
+            'Réclamations des usagers et entreprises',
+            'Procédures de contestation et révision'
+        ],
+        '550': [
+            'Contrôle a posteriori des déclarations',
+            'Vérifications comptables chez les entreprises',
+            'Audits et contrôles documentaires'
+        ],
+        '560': [
+            'Facilitations commerciales et procédures simplifiées',
+            'Opérateur économique agréé (OEA)',
+            'Guichet unique et dématérialisation'
+        ],
+        '610': [
+            'Dédouanement des marchandises à l\'importation',
+            'Liquidation et perception des droits et taxes',
+            'Mainlevée et enlèvement des marchandises'
+        ]
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         const codeInput = document.getElementById('code_classement');
         const codePreview = document.getElementById('code_preview');
-        const descriptionInput = document.getElementById('objet_classement');
+        const objetInput = document.getElementById('objet_classement');
+        const descriptionInput = document.getElementById('description');
         const charCount = document.getElementById('char-count');
         const previewCard = document.getElementById('preview-card');
         const previewCode = document.getElementById('preview-code');
+        const previewObjet = document.getElementById('preview-objet');
         const previewDescription = document.getElementById('preview-description');
+        const categorySelect = document.getElementById('category');
+        const suggestionsCard = document.getElementById('suggestions-card');
 
         // Update code preview
         codeInput.addEventListener('input', function() {
-            const value = this.value || '1';
-            const formattedCode = value.toString().padStart(3, '0');
-            codePreview.value = formattedCode;
-            previewCode.textContent = formattedCode;
+            const value = this.value.trim();
+            codePreview.value = value || '---';
+            previewCode.textContent = value || '---';
             updatePreview();
         });
 
         // Update character count and preview
-        descriptionInput.addEventListener('input', function() {
+        objetInput.addEventListener('input', function() {
             const length = this.value.length;
             charCount.textContent = length;
             
@@ -206,27 +239,67 @@
                 charCount.className = 'text-muted';
             }
 
-            previewDescription.textContent = this.value || 'Description du plan de classement...';
+            previewObjet.textContent = this.value || 'Objet de classement...';
+            updatePreview();
+        });
+
+        descriptionInput.addEventListener('input', function() {
+            previewDescription.textContent = this.value || 'Description...';
             updatePreview();
         });
 
         function updatePreview() {
             const hasCode = codeInput.value.trim() !== '';
-            const hasDescription = descriptionInput.value.trim() !== '';
+            const hasObjet = objetInput.value.trim() !== '';
             
-            if (hasCode || hasDescription) {
+            if (hasCode || hasObjet) {
                 previewCard.style.display = 'block';
             } else {
                 previewCard.style.display = 'none';
             }
         }
 
-        // Initialize character count
-        charCount.textContent = descriptionInput.value.length;
-        
-        // Initialize preview
+        // Initialize
+        charCount.textContent = objetInput.value.length;
         updatePreview();
     });
+
+    function updateCodeSuggestion() {
+        const categorySelect = document.getElementById('category');
+        const codeInput = document.getElementById('code_classement');
+        const suggestionsCard = document.getElementById('suggestions-card');
+        const suggestionsContent = document.getElementById('suggestions-content');
+        
+        const selectedCategory = categorySelect.value;
+        
+        if (selectedCategory) {
+            // Suggest code format
+            if (!codeInput.value) {
+                codeInput.value = selectedCategory + '.';
+                codeInput.dispatchEvent(new Event('input'));
+                codeInput.focus();
+                codeInput.setSelectionRange(codeInput.value.length, codeInput.value.length);
+            }
+            
+            // Show suggestions
+            if (suggestions[selectedCategory]) {
+                let html = '<p class="mb-2">Cliquez sur une suggestion :</p><div class="row">';
+                suggestions[selectedCategory].forEach(suggestion => {
+                    html += `<div class="col-12 mb-2">
+                        <button type="button" class="btn btn-outline-info btn-sm w-100 text-start" 
+                                onclick="fillSuggestion('${suggestion}')">
+                            ${suggestion}
+                        </button>
+                    </div>`;
+                });
+                html += '</div>';
+                suggestionsContent.innerHTML = html;
+                suggestionsCard.style.display = 'block';
+            }
+        } else {
+            suggestionsCard.style.display = 'none';
+        }
+    }
 
     function fillSuggestion(text) {
         document.getElementById('objet_classement').value = text;
@@ -237,38 +310,32 @@
     // Form validation
     document.querySelector('form').addEventListener('submit', function(e) {
         const code = document.getElementById('code_classement').value.trim();
-        const description = document.getElementById('objet_classement').value.trim();
+        const objet = document.getElementById('objet_classement').value.trim();
         
-        if (!code || !description) {
+        if (!code || !objet) {
             e.preventDefault();
             alert('Veuillez remplir tous les champs obligatoires.');
             return false;
         }
-        
-        if (parseInt(code) < 1) {
+
+        // Validate code format
+        const codeRegex = /^[0-9]+(\.[0-9]+)*$/;
+        if (!codeRegex.test(code)) {
             e.preventDefault();
-            alert('Le code de classement doit être supérieur à 0.');
+            alert('Le code doit être au format numérique (ex: 100.10.1).');
             return false;
         }
 
-        if (description.length < 10) {
+        if (objet.length < 10) {
             e.preventDefault();
             alert('L\'objet de classement doit contenir au moins 10 caractères.');
             return false;
         }
 
-        if (description.length > 500) {
+        if (objet.length > 500) {
             e.preventDefault();
             alert('L\'objet de classement ne peut pas dépasser 500 caractères.');
             return false;
-        }
-    });
-
-    // Auto-suggest next code
-    document.getElementById('code_classement').addEventListener('focus', function() {
-        if (!this.value) {
-            this.value = {{ $nextCode }};
-            this.dispatchEvent(new Event('input'));
         }
     });
 </script>

@@ -21,7 +21,7 @@
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    Modification du plan : {{ $planClassement->formatted_code }}
+                    Modification du plan : {{ $planClassement->code_classement }}
                 </h5>
             </div>
             <div class="card-body">
@@ -30,26 +30,27 @@
                     @method('PUT')
                     
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="code_classement" class="form-label">
                                     Code de Classement <span class="text-danger">*</span>
                                 </label>
-                                <input type="number" 
+                                <input type="text" 
                                        class="form-control @error('code_classement') is-invalid @enderror" 
                                        id="code_classement" 
                                        name="code_classement" 
                                        value="{{ old('code_classement', $planClassement->code_classement) }}" 
-                                       min="1"
+                                       placeholder="Ex: 100.10.1"
+                                       pattern="^[0-9]+(\.[0-9]+)*$"
                                        required>
                                 @error('code_classement')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
-                                <div class="form-text">Numéro unique d'identification du plan.</div>
+                                <div class="form-text">Format numérique (ex: 100.10.1).</div>
                             </div>
                         </div>
                         
-                        <div class="col-md-8">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="code_preview" class="form-label">Aperçu du Code</label>
                                 <div class="input-group">
@@ -60,7 +61,7 @@
                                            class="form-control bg-light" 
                                            id="code_preview" 
                                            readonly
-                                           value="{{ $planClassement->formatted_code }}">
+                                           value="{{ $planClassement->code_classement }}">
                                 </div>
                                 <div class="form-text">Format d'affichage du code de classement.</div>
                             </div>
@@ -86,6 +87,18 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (optionnelle)</label>
+                        <textarea class="form-control @error('description') is-invalid @enderror" 
+                                  id="description" 
+                                  name="description" 
+                                  rows="3"
+                                  placeholder="Description complémentaire ou notes...">{{ old('description', $planClassement->description) }}</textarea>
+                        @error('description')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <!-- Informations sur le plan -->
                     <div class="card border-light mb-3">
                         <div class="card-header bg-light">
@@ -99,17 +112,25 @@
                                 <div class="col-md-6">
                                     <p><strong>Date de création :</strong> {{ $planClassement->created_at->format('d/m/Y à H:i') }}</p>
                                     <p><strong>Dernière modification :</strong> {{ $planClassement->updated_at->format('d/m/Y à H:i') }}</p>
+                                    <p><strong>Catégorie :</strong> 
+                                        <span class="badge bg-secondary">{{ $planClassement->category }}</span>
+                                    </p>
                                 </div>
                                 <div class="col-md-6">
-                                    <p><strong>Nombre de règles de conservation :</strong> 
-                                        <span class="badge bg-info">{{ $planClassement->calendrierConservation()->count() }}</span>
+                                    <p><strong>Niveau hiérarchique :</strong> 
+                                        <span class="badge bg-info">{{ $planClassement->level }}</span>
                                     </p>
-                                    @if($planClassement->calendrierConservation()->count() > 0)
+                                    <p><strong>A une règle de conservation :</strong> 
+                                        <span class="badge {{ $planClassement->hasConservationRule() ? 'bg-success' : 'bg-warning' }}">
+                                            {{ $planClassement->hasConservationRule() ? 'Oui' : 'Non' }}
+                                        </span>
+                                    </p>
+                                    @if($planClassement->hasConservationRule())
                                         <p>
-                                            <a href="{{ route('admin.calendrier-conservation.index', ['plan_classement' => $planClassement->id]) }}" 
+                                            <a href="{{ route('admin.calendrier-conservation.by-plan', $planClassement) }}" 
                                                class="btn btn-sm btn-outline-info">
                                                 <i class="fas fa-calendar me-1"></i>
-                                                Voir les règles
+                                                Voir la règle
                                             </a>
                                         </p>
                                     @endif
@@ -118,12 +139,12 @@
                         </div>
                     </div>
 
-                    <!-- Warning for rules -->
-                    @if($planClassement->calendrierConservation()->count() > 0)
+                    <!-- Warning for conservation rules -->
+                    @if($planClassement->hasConservationRule())
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Attention :</strong> Ce plan de classement contient {{ $planClassement->calendrierConservation()->count() }} règle(s) de conservation. 
-                            Toute modification peut affecter ces règles.
+                            <strong>Attention :</strong> Ce plan de classement a une règle de conservation associée. 
+                            Toute modification peut affecter cette règle.
                         </div>
                     @endif
 
@@ -138,10 +159,11 @@
                         <div class="card-body">
                             <div class="d-flex align-items-center">
                                 <div class="me-3">
-                                    <span class="badge bg-primary fs-5" id="preview-code">{{ $planClassement->formatted_code }}</span>
+                                    <span class="badge bg-primary fs-5" id="preview-code">{{ $planClassement->code_classement }}</span>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <p class="mb-0 fw-bold" id="preview-description">{{ $planClassement->objet_classement }}</p>
+                                    <p class="mb-1 fw-bold" id="preview-objet">{{ $planClassement->objet_classement }}</p>
+                                    <p class="mb-0 text-muted small" id="preview-description">{{ $planClassement->description ?: 'Aucune description' }}</p>
                                 </div>
                             </div>
                         </div>
@@ -169,21 +191,22 @@
     document.addEventListener('DOMContentLoaded', function() {
         const codeInput = document.getElementById('code_classement');
         const codePreview = document.getElementById('code_preview');
-        const descriptionInput = document.getElementById('objet_classement');
+        const objetInput = document.getElementById('objet_classement');
+        const descriptionInput = document.getElementById('description');
         const charCount = document.getElementById('char-count');
         const previewCode = document.getElementById('preview-code');
+        const previewObjet = document.getElementById('preview-objet');
         const previewDescription = document.getElementById('preview-description');
 
         // Update code preview
         codeInput.addEventListener('input', function() {
-            const value = this.value || '1';
-            const formattedCode = value.toString().padStart(3, '0');
-            codePreview.value = formattedCode;
-            previewCode.textContent = formattedCode;
+            const value = this.value.trim();
+            codePreview.value = value || '{{ $planClassement->code_classement }}';
+            previewCode.textContent = value || '{{ $planClassement->code_classement }}';
         });
 
         // Update character count and preview
-        descriptionInput.addEventListener('input', function() {
+        objetInput.addEventListener('input', function() {
             const length = this.value.length;
             charCount.textContent = length;
             
@@ -196,11 +219,15 @@
                 charCount.className = 'text-muted';
             }
 
-            previewDescription.textContent = this.value || 'Description du plan de classement...';
+            previewObjet.textContent = this.value || '{{ $planClassement->objet_classement }}';
+        });
+
+        descriptionInput.addEventListener('input', function() {
+            previewDescription.textContent = this.value || 'Aucune description';
         });
 
         // Initialize character count
-        const initialLength = descriptionInput.value.length;
+        const initialLength = objetInput.value.length;
         charCount.textContent = initialLength;
         
         if (initialLength > 450) {
@@ -213,37 +240,39 @@
     // Form validation
     document.querySelector('form').addEventListener('submit', function(e) {
         const code = document.getElementById('code_classement').value.trim();
-        const description = document.getElementById('objet_classement').value.trim();
+        const objet = document.getElementById('objet_classement').value.trim();
         
-        if (!code || !description) {
+        if (!code || !objet) {
             e.preventDefault();
             alert('Veuillez remplir tous les champs obligatoires.');
             return false;
         }
-        
-        if (parseInt(code) < 1) {
+
+        // Validate code format
+        const codeRegex = /^[0-9]+(\.[0-9]+)*$/;
+        if (!codeRegex.test(code)) {
             e.preventDefault();
-            alert('Le code de classement doit être supérieur à 0.');
+            alert('Le code doit être au format numérique (ex: 100.10.1).');
             return false;
         }
 
-        if (description.length < 10) {
+        if (objet.length < 10) {
             e.preventDefault();
             alert('L\'objet de classement doit contenir au moins 10 caractères.');
             return false;
         }
 
-        if (description.length > 500) {
+        if (objet.length > 500) {
             e.preventDefault();
             alert('L\'objet de classement ne peut pas dépasser 500 caractères.');
             return false;
         }
 
-        // Warn if changing code of plan with rules
-        @if($planClassement->calendrierConservation()->count() > 0)
-            const originalCode = {{ $planClassement->code_classement }};
-            if (parseInt(code) !== originalCode) {
-                if (!confirm('Ce plan de classement a des règles de conservation associées. Êtes-vous sûr de vouloir modifier son code ?')) {
+        // Warn if changing code of plan with conservation rule
+        @if($planClassement->hasConservationRule())
+            const originalCode = '{{ $planClassement->code_classement }}';
+            if (code !== originalCode) {
+                if (!confirm('Ce plan de classement a une règle de conservation associée. Êtes-vous sûr de vouloir modifier son code ?')) {
                     e.preventDefault();
                     return false;
                 }

@@ -21,24 +21,24 @@ class StockageSeeder extends Seeder
     public function run(): void
     {
         // Get organismes
-        $adii = Organisme::where('nom_org', 'LIKE', '%ADII%')->first();
-        $dgi = Organisme::where('nom_org', 'LIKE', '%DGI%')->first();
+        $adii = Organisme::where('nom_org', 'LIKE', 'Direction Régionale de Casablanca Settat')->first();
+        $dgi = Organisme::where('nom_org', 'LIKE', 'Direction Régionale de Rabat Salé Kénitra')->first();
 
         if (!$adii || !$dgi) {
-            $this->command->warn('Les organismes ADII et DGI doivent être créés avant d\'exécuter ce seeder.');
+            $this->command->warn('Les organismes DRCS et DRRSK doivent être créés avant d\'exécuter ce seeder.');
             return;
         }
 
         // Create salles for ADII
         $salleADII1 = Salle::create([
-            'nom' => 'Salle Archives ADII - Niveau 1',
+            'nom' => 'Salle Archives DRCS - Niveau 1',
             'capacite_max' => 500,
             'capacite_actuelle' => 0,
             'organisme_id' => $adii->id,
         ]);
 
         $salleADII2 = Salle::create([
-            'nom' => 'Salle Archives ADII - Niveau 2',
+            'nom' => 'Salle Archives DRCS - Niveau 2',
             'capacite_max' => 800,
             'capacite_actuelle' => 0,
             'organisme_id' => $adii->id,
@@ -46,7 +46,7 @@ class StockageSeeder extends Seeder
 
         // Create salles for DGI
         $salleDGI1 = Salle::create([
-            'nom' => 'Salle Archives DGI - Principal',
+            'nom' => 'Salle Archives DRRSK - Principal',
             'capacite_max' => 600,
             'capacite_actuelle' => 0,
             'organisme_id' => $dgi->id,

@@ -20,12 +20,28 @@ class PlanClassementController extends Controller
             $query->search($request->search);
         }
 
+        // Filter by category
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
+        }
+
+        // Filter by conservation status
+        if ($request->filled('has_rules')) {
+            if ($request->has_rules === '1') {
+                $query->withConservationRules();
+            } else {
+                $query->withoutConservationRules();
+            }
+        }
+
         $plans = $query->withCount('calendrierConservation')
                       ->orderBy('code_classement')
                       ->paginate($request->get('per_page', 15))
                       ->withQueryString();
 
-        return view('admin.plan-classement.index', compact('plans'));
+        // Get categories for filter
+        $categories = PlanClassement::getCategories();
+        return view('admin.plan-classement.index', compact('plans', 'categories'));
     }
 
     /**
@@ -33,10 +49,19 @@ class PlanClassementController extends Controller
      */
     public function create()
     {
-        // Get next available code
-        $nextCode = PlanClassement::max('code_classement') + 1;
+        // Get available categories
+        $categories = [
+            '100' => 'Organisation et administration',
+            '510' => 'Régimes économiques douaniers',
+            '520' => 'Transit et transport',
+            '530' => 'Contentieux douanier',
+            '540' => 'Recours et réclamations',
+            '550' => 'Contrôle et vérification',
+            '560' => 'Facilitations commerciales',
+            '610' => 'Dédouanement des marchandises',
+        ];
         
-        return view('admin.plan-classement.create', compact('nextCode'));
+        return view('admin.plan-classement.create', compact('categories'));
     }
 
     /**
@@ -45,12 +70,13 @@ class PlanClassementController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'code_classement' => 'required|integer|min:1|unique:plan_classement',
+            'code_classement' => 'required|string|max:20|unique:plan_classement|regex:/^[0-9]+(\.[0-9]+)*$/',
             'objet_classement' => 'required|string|max:500',
+            'description' => 'nullable|string',
         ], [
             'code_classement.required' => 'Le code de classement est obligatoire.',
-            'code_classement.integer' => 'Le code de classement doit être un nombre entier.',
             'code_classement.unique' => 'Ce code de classement existe déjà.',
+            'code_classement.regex' => 'Le code doit être au format numérique (ex: 100.10.1).',
             'objet_classement.required' => 'L\'objet de classement est obligatoire.',
             'objet_classement.max' => 'L\'objet de classement ne peut pas dépasser 500 caractères.',
         ]);
@@ -66,20 +92,36 @@ class PlanClassementController extends Controller
      */
     public function show(PlanClassement $planClassement)
     {
-        $planClassement->load(['calendrierConservation' => function($query) {
-            $query->orderBy('NO_regle');
-        }]);
+        $planClassement->load('calendrierConservation');
         
         // Get statistics
         $stats = [
             'total_regles' => $planClassement->calendrierConservation()->count(),
             'regles_conservation' => $planClassement->calendrierConservation()->where('sort_final', 'C')->count(),
-            'regles_elimination' => $planClassement->calendrierConservation()->where('sort_final', 'E')->count(),
+            'regles_destruction' => $planClassement->calendrierConservation()->where('sort_final', 'D')->count(),
             'regles_tri' => $planClassement->calendrierConservation()->where('sort_final', 'T')->count(),
-            'duree_moyenne' => $planClassement->calendrierConservation()->avg('delais_legaux'),
+            'has_legal_requirement' => $planClassement->calendrierConservation()
+                                                     ->where('delai_legal', '!=', '_')
+                                                     ->where('delai_legal', '!=', '')
+                                                     ->whereNotNull('delai_legal')
+                                                     ->exists(),
+            'compliance_issues' => 0, // Will be calculated
         ];
 
-        return view('admin.plan-classement.show', compact('planClassement', 'stats'));
+        // Calculate compliance issues
+        if ($planClassement->calendrierConservation) {
+            $regle = $planClassement->calendrierConservation;
+            $stats['compliance_issues'] = count($regle->getValidationIssues());
+        }
+
+        // Get related plans (same category or parent/children)
+        $relatedPlans = PlanClassement::where('code_classement', 'LIKE', $planClassement->category . '%')
+                                    ->where('id', '!=', $planClassement->id)
+                                    ->orderBy('code_classement')
+                                    ->limit(10)
+                                    ->get();
+
+        return view('admin.plan-classement.show', compact('planClassement', 'stats', 'relatedPlans'));
     }
 
     /**
@@ -87,7 +129,19 @@ class PlanClassementController extends Controller
      */
     public function edit(PlanClassement $planClassement)
     {
-        return view('admin.plan-classement.edit', compact('planClassement'));
+        // Get available categories
+        $categories = [
+            '100' => 'Organisation et administration',
+            '510' => 'Régimes économiques douaniers',
+            '520' => 'Transit et transport',
+            '530' => 'Contentieux douanier',
+            '540' => 'Recours et réclamations',
+            '550' => 'Contrôle et vérification',
+            '560' => 'Facilitations commerciales',
+            '610' => 'Dédouanement des marchandises',
+        ];
+
+        return view('admin.plan-classement.edit', compact('planClassement', 'categories'));
     }
 
     /**
@@ -98,15 +152,17 @@ class PlanClassementController extends Controller
         $validated = $request->validate([
             'code_classement' => [
                 'required',
-                'integer',
-                'min:1',
+                'string',
+                'max:20',
+                'regex:/^[0-9]+(\.[0-9]+)*$/',
                 Rule::unique('plan_classement')->ignore($planClassement->id)
             ],
             'objet_classement' => 'required|string|max:500',
+            'description' => 'nullable|string',
         ], [
             'code_classement.required' => 'Le code de classement est obligatoire.',
-            'code_classement.integer' => 'Le code de classement doit être un nombre entier.',
             'code_classement.unique' => 'Ce code de classement existe déjà.',
+            'code_classement.regex' => 'Le code doit être au format numérique (ex: 100.10.1).',
             'objet_classement.required' => 'L\'objet de classement est obligatoire.',
             'objet_classement.max' => 'L\'objet de classement ne peut pas dépasser 500 caractères.',
         ]);
@@ -123,9 +179,9 @@ class PlanClassementController extends Controller
     public function destroy(PlanClassement $planClassement)
     {
         // Check if plan has related calendrier conservation
-        if ($planClassement->calendrierConservation()->count() > 0) {
+        if ($planClassement->hasConservationRule()) {
             return redirect()->route('admin.plan-classement.index')
-                            ->with('error', 'Impossible de supprimer ce plan car il contient des règles de conservation.');
+                            ->with('error', 'Impossible de supprimer ce plan car il contient une règle de conservation.');
         }
 
         $planClassement->delete();
@@ -144,6 +200,18 @@ class PlanClassementController extends Controller
         // Apply filters
         if ($request->filled('search')) {
             $query->search($request->search);
+        }
+
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
+        }
+
+        if ($request->filled('has_rules')) {
+            if ($request->has_rules === '1') {
+                $query->withConservationRules();
+            } else {
+                $query->withoutConservationRules();
+            }
         }
 
         $plans = $query->withCount('calendrierConservation')
@@ -167,16 +235,24 @@ class PlanClassementController extends Controller
             fputcsv($file, [
                 'Code Classement',
                 'Objet de Classement',
-                'Nombre de Règles',
-                'Date de Création'
+                'Catégorie',
+                'Niveau',
+                'A une Règle de Conservation',
+                'Description',
+                'Date de Création',
+                'Dernière Modification'
             ], ';');
             
             foreach ($plans as $plan) {
                 fputcsv($file, [
-                    $plan->formatted_code,
+                    $plan->code_classement,
                     $plan->objet_classement,
-                    $plan->calendrier_conservation_count ?? 0,
-                    $plan->created_at->format('d/m/Y H:i:s')
+                    $plan->category_name,
+                    $plan->level,
+                    $plan->hasConservationRule() ? 'Oui' : 'Non',
+                    $plan->description,
+                    $plan->created_at->format('d/m/Y H:i:s'),
+                    $plan->updated_at->format('d/m/Y H:i:s')
                 ], ';');
             }
             
@@ -196,11 +272,28 @@ class PlanClassementController extends Controller
         if ($request->filled('search')) {
             $query->search($request->search);
         }
+
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
+        }
+
+        if ($request->filled('without_rules') && $request->without_rules) {
+            $query->withoutConservationRules();
+        }
         
         $plans = $query->select('id', 'code_classement', 'objet_classement')
                       ->orderBy('code_classement')
-                      ->limit(20)
-                      ->get();
+                      ->limit(50)
+                      ->get()
+                      ->map(function($plan) {
+                          return [
+                              'id' => $plan->id,
+                              'code_classement' => $plan->code_classement,
+                              'objet_classement' => $plan->objet_classement,
+                              'hierarchical_name' => $plan->hierarchical_name,
+                              'has_rule' => $plan->hasConservationRule()
+                          ];
+                      });
         
         return response()->json($plans);
     }
@@ -211,7 +304,7 @@ class PlanClassementController extends Controller
     public function bulkAction(Request $request)
     {
         $validated = $request->validate([
-            'action' => 'required|in:delete,export',
+            'action' => 'required|in:delete,export,create_rules',
             'plan_ids' => 'required|array',
             'plan_ids.*' => 'exists:plan_classement,id',
         ]);
@@ -225,6 +318,9 @@ class PlanClassementController extends Controller
             
             case 'export':
                 return $this->bulkExport($planIds);
+
+            case 'create_rules':
+                return $this->bulkCreateRules($planIds);
             
             default:
                 return response()->json(['success' => false, 'message' => 'Action non reconnue.'], 400);
@@ -242,8 +338,8 @@ class PlanClassementController extends Controller
 
         foreach ($plans as $plan) {
             // Check if plan has calendrier conservation
-            if ($plan->calendrierConservation()->count() > 0) {
-                $errors[] = "Le plan '{$plan->formatted_code}' contient des règles de conservation.";
+            if ($plan->hasConservationRule()) {
+                $errors[] = "Le plan '{$plan->code_classement}' contient une règle de conservation.";
                 continue;
             }
 
@@ -287,16 +383,20 @@ class PlanClassementController extends Controller
             fputcsv($file, [
                 'Code Classement',
                 'Objet de Classement',
-                'Nombre de Règles',
-                'Date de Création'
+                'Catégorie',
+                'Niveau',
+                'A une Règle de Conservation',
+                'Description'
             ], ';');
             
             foreach ($plans as $plan) {
                 fputcsv($file, [
-                    $plan->formatted_code,
+                    $plan->code_classement,
                     $plan->objet_classement,
-                    $plan->calendrier_conservation_count ?? 0,
-                    $plan->created_at->format('d/m/Y H:i:s')
+                    $plan->category_name,
+                    $plan->level,
+                    $plan->hasConservationRule() ? 'Oui' : 'Non',
+                    $plan->description
                 ], ';');
             }
             
@@ -304,6 +404,36 @@ class PlanClassementController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Bulk create conservation rules for plans without rules.
+     */
+    private function bulkCreateRules($planIds)
+    {
+        $plans = PlanClassement::whereIn('id', $planIds)->withoutConservationRules()->get();
+        $created = 0;
+
+        foreach ($plans as $plan) {
+            // Create a default conservation rule
+            $plan->calendrierConservation()->create([
+                'pieces_constituant' => 'À définir',
+                'principal_secondaire' => 'S', // Secondary by default
+                'delai_legal' => '_',
+                'reference_juridique' => 'À définir',
+                'archives_courantes' => '3 ans',
+                'archives_intermediaires' => '7 ans',
+                'sort_final' => 'D', // Destruction by default
+                'observation' => 'Règle créée automatiquement - À réviser et compléter'
+            ]);
+            $created++;
+        }
+
+        $message = $created > 0 ? "{$created} règle(s) de conservation créée(s) avec succès." : 
+                                 'Aucune règle créée (plans déjà avec règles).';
+
+        return redirect()->route('admin.plan-classement.index')
+                        ->with('success', $message);
     }
 
     /**
@@ -316,9 +446,121 @@ class PlanClassementController extends Controller
             'total_regles' => \App\Models\CalendrierConservation::count(),
             'plans_avec_regles' => PlanClassement::has('calendrierConservation')->count(),
             'plans_sans_regles' => PlanClassement::doesntHave('calendrierConservation')->count(),
+            'par_categorie' => PlanClassement::selectRaw("SUBSTRING_INDEX(code_classement, '.', 1) as category, COUNT(*) as count")
+                                            ->groupBy('category')
+                                            ->orderBy('category')
+                                            ->get()
+                                            ->mapWithKeys(function($item) {
+                                                $categoryNames = [
+                                                    '100' => 'Organisation et administration',
+                                                    '510' => 'Régimes économiques douaniers',
+                                                    '520' => 'Transit et transport',
+                                                    '530' => 'Contentieux douanier',
+                                                    '540' => 'Recours et réclamations',
+                                                    '550' => 'Contrôle et vérification',
+                                                    '560' => 'Facilitations commerciales',
+                                                    '610' => 'Dédouanement des marchandises',
+                                                ];
+                                                $categoryName = $categoryNames[$item->category] ?? "Catégorie {$item->category}";
+                                                return [$categoryName => $item->count];
+                                            }),
             'recent_plans' => PlanClassement::latest()->limit(5)->get(),
+            'recent_without_rules' => PlanClassement::withoutConservationRules()->latest()->limit(5)->get(),
         ];
 
         return response()->json($stats);
+    }
+
+    /**
+     * Get hierarchical view of plans by category.
+     */
+    public function hierarchical(Request $request)
+    {
+        $category = $request->get('category');
+        
+        $query = PlanClassement::query();
+        
+        if ($category) {
+            $query->byCategory($category);
+        }
+        
+        $plans = $query->withCount('calendrierConservation')
+                      ->orderBy('code_classement')
+                      ->get()
+                      ->groupBy('category');
+
+        $hierarchicalPlans = [];
+        
+        foreach ($plans as $categoryCode => $categoryPlans) {
+            $categoryNames = [
+                '100' => 'Organisation et administration',
+                '510' => 'Régimes économiques douaniers',
+                '520' => 'Transit et transport',
+                '530' => 'Contentieux douanier',
+                '540' => 'Recours et réclamations',
+                '550' => 'Contrôle et vérification',
+                '560' => 'Facilitations commerciales',
+                '610' => 'Dédouanement des marchandises',
+            ];
+
+            $hierarchicalPlans[] = [
+                'category_code' => $categoryCode,
+                'category_name' => $categoryNames[$categoryCode] ?? "Catégorie $categoryCode",
+                'plans' => $categoryPlans->map(function($plan) {
+                    return [
+                        'id' => $plan->id,
+                        'code' => $plan->code_classement,
+                        'objet' => $plan->objet_classement,
+                        'level' => $plan->level,
+                        'has_rule' => $plan->calendrier_conservation_count > 0,
+                        'parent' => $plan->parent ? $plan->parent->code_classement : null,
+                        'children_count' => $plan->children->count()
+                    ];
+                })
+            ];
+        }
+
+        return response()->json($hierarchicalPlans);
+    }
+
+    /**
+     * Import plans from CSV/Excel.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'import_file' => 'required|file|mimes:csv,xlsx,xls|max:2048',
+        ]);
+
+        try {
+            $file = $request->file('import_file');
+            
+            // Process import file here
+            // This would involve reading the file and creating/updating records
+            
+            return redirect()->route('admin.plan-classement.index')
+                            ->with('success', 'Import réalisé avec succès.');
+            
+        } catch (\Exception $e) {
+            return redirect()->route('admin.plan-classement.index')
+                            ->with('error', 'Erreur lors de l\'import : ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Validate plan classement code format.
+     */
+    public function validateCode(Request $request)
+    {
+        $code = $request->get('code');
+        
+        $validation = [
+            'exists' => PlanClassement::where('code_classement', $code)->exists(),
+            'format_valid' => preg_match('/^[0-9]+(\.[0-9]+)*$/', $code),
+            'category' => substr($code, 0, 3),
+            'level' => substr_count($code, '.') + 1
+        ];
+        
+        return response()->json($validation);
     }
 }

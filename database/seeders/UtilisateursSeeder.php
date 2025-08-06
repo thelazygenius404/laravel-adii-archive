@@ -16,10 +16,9 @@ class UtilisateursSeeder extends Seeder
     public function run(): void
     {
         // Get some entite productrices for assignment
-        $adiiDG = EntiteProductrice::where('code_entite', 'ADII-DG')->first();
-        $adiiDOD = EntiteProductrice::where('code_entite', 'ADII-DOD')->first();
-        $adiiDC = EntiteProductrice::where('code_entite', 'ADII-DC')->first();
-        $adiiDI = EntiteProductrice::where('code_entite', 'ADII-DI')->first();
+        $adiiDG = EntiteProductrice::where('code_entite', 'RSK-DPRS')->first();
+        $adiiDOD = EntiteProductrice::where('code_entite', 'CS-DPC')->first();
+        $adiiDC = EntiteProductrice::where('code_entite', 'RSK-DPK')->first();
 
         // Admin user
         User::updateOrCreate(['email' => 'admin@example.com'], [
@@ -40,7 +39,7 @@ class UtilisateursSeeder extends Seeder
             'role' => 'gestionnaire_archives',
             'password' => Hash::make('gestionnaire123'),
             'email_verified_at' => now(),
-            'id_entite_productrices' => $adiiDI?->id,
+            'id_entite_productrices' => $adiiDOD?->id,
         ]);
 
         // Service producteurs user
@@ -54,37 +53,6 @@ class UtilisateursSeeder extends Seeder
             'id_entite_productrices' => $adiiDOD?->id,
         ]);
        
-        // Specific users for ADII
-
-        User::updateOrCreate(['email' => 'chef.dedouanement@adii.gov.ma'], [
-            'nom' => 'Idrissi',
-            'prenom' => 'Aicha',
-            'email' => 'chef.dedouanement@adii.gov.ma',
-            'role' => 'service_producteurs',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DOD-SD')->first()?->id,
-        ]);
-
-        User::updateOrCreate(['email' => 'responsable.contentieux@adii.gov.ma'], [
-            'nom' => 'Chakib',
-            'prenom' => 'Omar',
-            'email' => 'responsable.contentieux@adii.gov.ma',
-            'role' => 'gestionnaire_archives',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DOD-SC')->first()?->id,
-        ]);
-
-        User::updateOrCreate(['email' => 'chef.brigade@adii.gov.ma'], [
-            'nom' => 'Fassi',
-            'prenom' => 'Youssef',
-            'email' => 'chef.brigade@adii.gov.ma',
-            'role' => 'service_producteurs',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DC-BM')->first()?->id,
-        ]);
         User::updateOrCreate(['email' => 'ichrak.laadimi@adii.gov.ma'], [
             'nom' => 'Laadimi',
             'prenom' => 'Ichrak',
@@ -101,7 +69,7 @@ class UtilisateursSeeder extends Seeder
             'role' => 'user',
             'password' => Hash::make('bilal123'),
             'email_verified_at' => now(),
-            'id_entite_productrices' => EntiteProductrice::where('code_entite', 'ADII-DC-SE')->first()?->id,
+            'id_entite_productrices' => $adiiDC?->id,
         ]);
     }
 }
