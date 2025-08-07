@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('prenom');
             $table->string('email')->unique();
             $table->string('password'); // Add password field
-            $table->enum('role', ['gestionnaire_archives', 'admin', 'service_producteurs']);
+            $table->enum('role', ['gestionnaire_archives', 'admin', 'service_producteurs','user']);
             $table->timestamp('date_creation')->useCurrent();
             $table->timestamp('email_verified_at')->nullable(); // For Laravel auth
             $table->rememberToken(); // For "remember me" functionality
